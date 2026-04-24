@@ -68,12 +68,12 @@
 
 ### 0.4 配置与日志
 
-- [ ] **0.4.1** 编写 `gotit/config.py`：
-  - `AppConfig(BaseSettings)` 含 env_prefix="GOTIT_"
-  - `STTConfig`, `LLMConfig`, `SearchConfig`, `AudioConfig`, `UIConfig` 子配置
+- [x] **0.4.1** 编写 `gotit/config.py`：
+  - `AppConfig(BaseSettings)` 含 env_prefix="GOTIT_", env_nested_delimiter="__"
+  - `STTConfig`, `LLMConfig`, `SearchConfig`, `AudioConfig`, `UIConfig`, `ServerConfig` 子配置
   - `UIConfig` 包含 `auto_close_delay: int = 3`（Main Panel自动收起秒数）
-- [ ] **0.4.2** 创建 `.env.example` 文件，列出所有环境变量模板
-- [ ] **0.4.3** 配置 structlog（在 `gotit/main.py` 中初始化）
+- [x] **0.4.2** 创建 `.env.example` 文件，列出所有环境变量模板
+- [x] **0.4.3** 配置 structlog（在 `gotit/main.py` 中初始化，含时间戳、日志级别、控制台渲染器）
 
 ### 0.5 测试骨架
 
@@ -596,14 +596,14 @@
 
 | 阶段 | 任务总数 | 已完成 | 进度 | 状态 |
 |------|---------|--------|------|------|
-| Phase 0: 项目脚手架 | 27 | 16 | 59% | 进行中 |
+| Phase 0: 项目脚手架 | 27 | 19 | 70% | 进行中 |
 | Phase 1: MVP命令行版 | 25 | 0 | 0% | 未开始 |
 | Phase 2: WebSocket API | 11 | 0 | 0% | 未开始 |
 | Phase 3: 前端UI | 17 | 0 | 0% | 未开始 |
 | Phase 4: Tauri桌面应用 | 18 | 0 | 0% | 未开始 |
 | Phase 5: 体验优化 | 14 | 0 | 0% | 未开始 |
 | Phase 6: 扩展能力 | 10 | 0 | 0% | 未来规划 |
-| **总计** | **122** | **16** | **13%** | — |
+| **总计** | **122** | **19** | **16%** | — |
 
 ---
 
@@ -614,3 +614,4 @@
 | 2026-04-24 | 初始任务清单创建 |
 | 2026-04-24 | 完成 0.1（Python后端初始化）+ 0.2（目录结构创建）+ 0.7.1（models/.gitkeep） |
 | 2026-04-24 | 完成 0.3（Domain层骨架）：models/ports/events/pipeline + EventBus，全部实现非占位 |
+| 2026-04-24 | 完成 0.4（配置与日志）：AppConfig + 6个子配置 + .env.example + structlog |
