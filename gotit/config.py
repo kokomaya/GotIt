@@ -25,7 +25,7 @@ class LLMConfig(BaseModel):
 
 
 class SearchConfig(BaseModel):
-    everything_path: str = "es.exe"
+    everything_path: str = "D:\\03_Tools\\Everything\\es.exe"
     max_results: int = 20
 
 
