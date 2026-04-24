@@ -42,26 +42,29 @@
 
 ### 0.3 Domain层骨架编写
 
-- [ ] **0.3.1** 编写 `gotit/domain/models.py`：
+- [x] **0.3.1** 编写 `gotit/domain/models.py`：
   - 定义 `AudioChunk` dataclass（data, sample_rate, timestamp）
   - 定义 `Transcript` dataclass（text, language, confidence）
   - 定义 `ActionType` 枚举（SEARCH, OPEN_FILE, OPEN_FOLDER, RUN_PROGRAM, SYSTEM_CONTROL）
   - 定义 `Intent` dataclass（action, query, target, filters, raw_text, confidence）
   - 定义 `SearchResult` dataclass（path, filename, size, modified, match_score）
   - 定义 `ExecutionResult` dataclass（success, action, message, data）
-- [ ] **0.3.2** 编写 `gotit/domain/ports.py`：
+  - 额外定义 `AudioDevice` dataclass（index, name, is_default）
+- [x] **0.3.2** 编写 `gotit/domain/ports.py`：
   - 定义 `STTPort` Protocol（transcribe, start_stream, stop_stream）
   - 定义 `LLMPort` Protocol（parse_intent）
   - 定义 `SearchPort` Protocol（search）
   - 定义 `ExecutorPort` Protocol（execute）
   - 定义 `AudioCapturePort` Protocol（start, stop, list_devices）
-- [ ] **0.3.3** 编写 `gotit/domain/events.py`：
+- [x] **0.3.3** 编写 `gotit/domain/events.py`：
   - 定义 `DomainEvent` 基类（timestamp, event_id）
-  - 定义 `TranscriptEvent`, `IntentEvent`, `SearchEvent`, `ExecutionEvent`
-- [ ] **0.3.4** 编写 `gotit/domain/pipeline.py`：
-  - `VoicePipeline` 类骨架（构造函数接收所有Port + EventBus）
-  - `run_once()` 方法占位（pass）
-  - `run_from_text()` 方法占位（跳过STT，直接从文本开始，供Launcher键盘输入使用）
+  - 定义 `TranscriptEvent`, `IntentEvent`, `SearchEvent`, `ExecutionEvent`, `ErrorEvent`
+- [x] **0.3.4** 编写 `gotit/domain/pipeline.py`：
+  - `VoicePipeline` 类（构造函数接收所有Port + EventBus）
+  - `run_once(audio)` 完整实现：STT → Intent → Search → Execute + 事件发布
+  - `run_from_text(text)` 完整实现：跳过STT，直接从文本开始Pipeline
+  - `_run_from_transcript()` 内部方法：共享的Intent→Search→Execute逻辑 + 错误处理
+  - 额外实现 `gotit/services/event_bus.py`（EventBus: publish/subscribe/unsubscribe）
 
 ### 0.4 配置与日志
 
@@ -593,14 +596,14 @@
 
 | 阶段 | 任务总数 | 已完成 | 进度 | 状态 |
 |------|---------|--------|------|------|
-| Phase 0: 项目脚手架 | 27 | 12 | 44% | 进行中 |
+| Phase 0: 项目脚手架 | 27 | 16 | 59% | 进行中 |
 | Phase 1: MVP命令行版 | 25 | 0 | 0% | 未开始 |
 | Phase 2: WebSocket API | 11 | 0 | 0% | 未开始 |
 | Phase 3: 前端UI | 17 | 0 | 0% | 未开始 |
 | Phase 4: Tauri桌面应用 | 18 | 0 | 0% | 未开始 |
 | Phase 5: 体验优化 | 14 | 0 | 0% | 未开始 |
 | Phase 6: 扩展能力 | 10 | 0 | 0% | 未来规划 |
-| **总计** | **122** | **12** | **10%** | — |
+| **总计** | **122** | **16** | **13%** | — |
 
 ---
 
@@ -610,3 +613,4 @@
 |------|---------|
 | 2026-04-24 | 初始任务清单创建 |
 | 2026-04-24 | 完成 0.1（Python后端初始化）+ 0.2（目录结构创建）+ 0.7.1（models/.gitkeep） |
+| 2026-04-24 | 完成 0.3（Domain层骨架）：models/ports/events/pipeline + EventBus，全部实现非占位 |
