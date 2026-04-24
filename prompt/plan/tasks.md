@@ -12,33 +12,33 @@
 
 ### 0.1 Python后端初始化
 
-- [ ] **0.1.1** 在项目根目录执行 `uv init`，生成 `pyproject.toml`
-- [ ] **0.1.2** 配置 `pyproject.toml`：
+- [x] **0.1.1** 在项目根目录执行 `uv init`，生成 `pyproject.toml`
+- [x] **0.1.2** 配置 `pyproject.toml`：
   - 项目名 `gotit`，Python `>=3.12`
   - 添加核心依赖：`fastapi`, `uvicorn[standard]`, `pydantic-settings`, `structlog`
   - 添加AI依赖：`anthropic`, `httpx`
-  - 添加音频依赖：`pywhispercpp`, `sounddevice`, `numpy`
+  - 添加音频依赖：`sounddevice`, `numpy`（`pywhispercpp` 延迟到Phase 1安装，需C++编译工具链）
   - 添加开发依赖：`pytest`, `pytest-asyncio`, `ruff`
   - 配置 `[project.scripts]` 入口：`gotit = "gotit.main:main"`
-- [ ] **0.1.3** 执行 `uv sync` 安装所有依赖，确认无冲突
-- [ ] **0.1.4** 配置 `ruff` 规则（在 `pyproject.toml` 中添加 `[tool.ruff]` 段）
+- [x] **0.1.3** 执行 `uv sync` 安装所有依赖，确认无冲突
+- [x] **0.1.4** 配置 `ruff` 规则（在 `pyproject.toml` 中添加 `[tool.ruff]` 段）
 
 ### 0.2 后端目录结构创建
 
-- [ ] **0.2.1** 创建 `gotit/` 包目录 + `__init__.py`
-- [ ] **0.2.2** 创建 `gotit/domain/` 目录 + `__init__.py`
+- [x] **0.2.1** 创建 `gotit/` 包目录 + `__init__.py`
+- [x] **0.2.2** 创建 `gotit/domain/` 目录 + `__init__.py`
   - 创建空文件：`models.py`, `ports.py`, `events.py`, `pipeline.py`
-- [ ] **0.2.3** 创建 `gotit/adapters/` 目录结构：
+- [x] **0.2.3** 创建 `gotit/adapters/` 目录结构：
   - `adapters/__init__.py`
   - `adapters/stt/__init__.py`, `adapters/stt/whisper_cpp.py`
   - `adapters/llm/__init__.py`, `adapters/llm/claude.py`, `adapters/llm/ollama.py`
   - `adapters/search/__init__.py`, `adapters/search/everything.py`
   - `adapters/executor/__init__.py`, `adapters/executor/windows.py`
   - `adapters/audio/__init__.py`, `adapters/audio/sounddevice.py`
-- [ ] **0.2.4** 创建 `gotit/api/` 目录：`__init__.py`, `websocket.py`, `routes.py`
-- [ ] **0.2.5** 创建 `gotit/services/` 目录：`__init__.py`, `event_bus.py`, `container.py`, `session.py`
-- [ ] **0.2.6** 创建 `gotit/main.py`（FastAPI入口占位）
-- [ ] **0.2.7** 创建 `gotit/config.py`（Pydantic Settings占位）
+- [x] **0.2.4** 创建 `gotit/api/` 目录：`__init__.py`, `websocket.py`, `routes.py`
+- [x] **0.2.5** 创建 `gotit/services/` 目录：`__init__.py`, `event_bus.py`, `container.py`, `session.py`
+- [x] **0.2.6** 创建 `gotit/main.py`（FastAPI入口占位）
+- [x] **0.2.7** 创建 `gotit/config.py`（Pydantic Settings占位）
 
 ### 0.3 Domain层骨架编写
 
@@ -95,7 +95,7 @@
 
 ### 0.7 其他
 
-- [ ] **0.7.1** 创建 `models/.gitkeep` + 更新 `.gitignore`（添加 `models/*.bin`）
+- [x] **0.7.1** 创建 `models/.gitkeep` + 更新 `.gitignore`（添加 `models/*.bin`）
 - [ ] **0.7.2** 创建初始 git commit：`chore: project scaffold`
 
 ### Phase 0 验收标准
@@ -593,14 +593,14 @@
 
 | 阶段 | 任务总数 | 已完成 | 进度 | 状态 |
 |------|---------|--------|------|------|
-| Phase 0: 项目脚手架 | 27 | 0 | 0% | 未开始 |
+| Phase 0: 项目脚手架 | 27 | 12 | 44% | 进行中 |
 | Phase 1: MVP命令行版 | 25 | 0 | 0% | 未开始 |
 | Phase 2: WebSocket API | 11 | 0 | 0% | 未开始 |
 | Phase 3: 前端UI | 17 | 0 | 0% | 未开始 |
 | Phase 4: Tauri桌面应用 | 18 | 0 | 0% | 未开始 |
 | Phase 5: 体验优化 | 14 | 0 | 0% | 未开始 |
 | Phase 6: 扩展能力 | 10 | 0 | 0% | 未来规划 |
-| **总计** | **122** | **0** | **0%** | — |
+| **总计** | **122** | **12** | **10%** | — |
 
 ---
 
@@ -609,3 +609,4 @@
 | 日期 | 变更内容 |
 |------|---------|
 | 2026-04-24 | 初始任务清单创建 |
+| 2026-04-24 | 完成 0.1（Python后端初始化）+ 0.2（目录结构创建）+ 0.7.1（models/.gitkeep） |

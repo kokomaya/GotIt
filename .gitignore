@@ -1,3 +1,10 @@
+# Whisper models (large binary files)
+models/*.bin
+models/*.gguf
+
+# uv lockfile & venv
+uv.lock
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
