@@ -1,32 +1,44 @@
 import { useCallback } from "react";
 
-const isTauri = "__TAURI__" in window;
+const isTauri = typeof window !== "undefined" && "__TAURI__" in window;
+
+async function invoke(cmd: string) {
+  if (isTauri) {
+    const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
+    return tauriInvoke(cmd);
+  }
+}
 
 export function useTauriWindow() {
-  const showLauncher = useCallback(() => {
+  const showLauncher = useCallback(async () => {
     if (isTauri) {
-      // Tauri: invoke Rust command
-    } else {
-      window.open("/launcher.html", "gotit-launcher", "width=640,height=80");
+      await invoke("show_launcher");
     }
   }, []);
 
-  const hideLauncherShowPanel = useCallback((_text: string) => {
+  const hideLauncher = useCallback(async () => {
     if (isTauri) {
-      // Tauri: hide launcher, show main, emit query
-    } else {
-      window.close();
-      window.open("/", "gotit-main", "width=720,height=520");
+      await invoke("hide_launcher");
     }
   }, []);
 
-  const hideAll = useCallback(() => {
+  const showMain = useCallback(async () => {
     if (isTauri) {
-      // Tauri: hide all windows
-    } else {
-      window.close();
+      await invoke("show_main");
     }
   }, []);
 
-  return { showLauncher, hideLauncherShowPanel, hideAll, isTauri };
+  const hideMain = useCallback(async () => {
+    if (isTauri) {
+      await invoke("hide_main");
+    }
+  }, []);
+
+  const hideAll = useCallback(async () => {
+    if (isTauri) {
+      await invoke("hide_all");
+    }
+  }, []);
+
+  return { showLauncher, hideLauncher, showMain, hideMain, hideAll, isTauri };
 }

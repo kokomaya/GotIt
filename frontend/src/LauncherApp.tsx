@@ -3,20 +3,25 @@ import "./index.css";
 import { InputBar } from "./components/launcher/InputBar";
 import { ModeIndicator } from "./components/launcher/ModeIndicator";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { useTauriWindow } from "./hooks/useTauriWindow";
 
 export default function LauncherApp() {
   const [text, setText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const { submitText } = useWebSocket();
+  const { hideLauncher, showMain } = useTauriWindow();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!text.trim()) return;
     submitText(text.trim());
     setText("");
+    await hideLauncher();
+    await showMain();
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     setText("");
+    await hideLauncher();
   };
 
   return (
