@@ -78,7 +78,9 @@ def _build_query(query: str, filters: dict[str, str] | None) -> str:
             parts.append(f"dm:{dm}")
 
     if query and query != "*":
-        parts.append(query)
+        ext_filter = filters.get("ext", "") if filters else ""
+        if not (ext_filter and query == f"*.{ext_filter}"):
+            parts.append(query)
     elif not parts:
         parts.append("*")
 

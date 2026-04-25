@@ -49,15 +49,15 @@ async def _run_text(config: AppConfig, text: str) -> None:
     from gotit.services.container import Container
 
     container = Container(config)
-    pipeline = container.build_pipeline()
+    pipeline = container.build_pipeline(require_stt=False)
 
     log.info("processing_text", text=text)
     result = await pipeline.run_from_text(text)
 
     if result.success:
-        print(f"\n✅ {result.message}")
+        print(f"\n[OK] {result.message}")
     else:
-        print(f"\n❌ {result.message}", file=sys.stderr)
+        print(f"\n[FAIL] {result.message}", file=sys.stderr)
 
 
 def main() -> None:

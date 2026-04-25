@@ -17,15 +17,16 @@ class STTConfig(BaseModel):
 
 
 class LLMConfig(BaseModel):
-    provider: str = "claude"
-    model: str = "claude-sonnet-4-6"
+    provider: str = "openai"
+    model: str = ""
     api_key: str = ""
     base_url: str = ""
     system_prompt: str = ""
+    extra_headers: dict[str, str] = {}
 
 
 class SearchConfig(BaseModel):
-    everything_path: str = "D:\\03_Tools\\Everything\\es.exe"
+    everything_path: str = "es.exe"
     max_results: int = 20
 
 

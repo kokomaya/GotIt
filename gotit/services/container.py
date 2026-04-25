@@ -11,14 +11,28 @@ if TYPE_CHECKING:
     from gotit.config import AppConfig
 
 
+class _StubSTT:
+    """Placeholder STT for text-only mode — avoids loading whisper model."""
+
+    async def transcribe(self, audio):
+        raise RuntimeError("STT not available. Use --text mode or provide a whisper model.")
+
+    async def start_stream(self):
+        raise NotImplementedError
+        yield
+
+    async def stop_stream(self):
+        pass
+
+
 class Container:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         self.event_bus = EventBus()
 
-    def build_pipeline(self) -> VoicePipeline:
+    def build_pipeline(self, *, require_stt: bool = True) -> VoicePipeline:
         return VoicePipeline(
-            stt=self._build_stt(),
+            stt=self._build_stt() if require_stt else _StubSTT(),
             llm=self._build_llm(),
             searcher=self._build_searcher(),
             executor=self._build_executor(),
@@ -36,9 +50,9 @@ class Container:
 
             return OllamaAdapter(self.config.llm)
 
-        from gotit.adapters.llm.claude import ClaudeAdapter
+        from gotit.adapters.llm.claude import OpenAICompatibleAdapter
 
-        return ClaudeAdapter(self.config.llm)
+        return OpenAICompatibleAdapter(self.config.llm)
 
     def _build_searcher(self):
         from gotit.adapters.search.everything import EverythingAdapter

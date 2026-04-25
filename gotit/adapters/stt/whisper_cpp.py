@@ -38,7 +38,7 @@ class WhisperCppAdapter:
 
         from pywhispercpp.model import Model
 
-        self._model = Model(str(model_file), log_level="WARNING")
+        self._model = Model(str(model_file), print_realtime=False, print_progress=False)
         log.info("whisper_model_loaded", path=self._model_path, language=self._language)
 
     async def transcribe(self, audio: AudioChunk) -> Transcript:

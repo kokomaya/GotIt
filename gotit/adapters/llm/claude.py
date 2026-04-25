@@ -1,4 +1,4 @@
-"""Claude API adapter for LLMPort — cloud-based intent parsing."""
+"""OpenAI-compatible LLM adapter for LLMPort."""
 
 from __future__ import annotations
 
@@ -19,14 +19,19 @@ _PROMPTS_DIR = Path(__file__).parent / "prompts"
 _SYSTEM_PROMPT = (_PROMPTS_DIR / "intent_system.txt").read_text(encoding="utf-8")
 
 
-class ClaudeAdapter:
+class OpenAICompatibleAdapter:
+    """LLM adapter using any OpenAI-compatible API."""
+
     def __init__(self, config: LLMConfig) -> None:
-        import anthropic
+        import httpx
+        import openai
 
         self._model = config.model
-        self._client = anthropic.Anthropic(
+        self._client = openai.OpenAI(
             api_key=config.api_key or None,
             base_url=config.base_url or None,
+            default_headers=config.extra_headers or None,
+            http_client=httpx.Client(verify=False),
         )
         self._context: list[str] = []
         self._max_context = 3
@@ -43,14 +48,15 @@ class ClaudeAdapter:
 
         log.debug("llm_request", model=self._model, text=text)
 
-        response = self._client.messages.create(
+        response = self._client.chat.completions.create(
             model=self._model,
-            max_tokens=256,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_content}],
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": user_content},
+            ],
         )
 
-        raw = response.content[0].text.strip()
+        raw = response.choices[0].message.content.strip()
         log.debug("llm_response", raw=raw)
 
         intent = _parse_response(raw, text)
@@ -60,6 +66,10 @@ class ClaudeAdapter:
             self._context.pop(0)
 
         return intent
+
+
+# Keep backward-compatible alias
+ClaudeAdapter = OpenAICompatibleAdapter
 
 
 def _parse_response(raw: str, original_text: str) -> Intent:
