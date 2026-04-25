@@ -63,6 +63,15 @@ async def _run_text(config: AppConfig, text: str) -> None:
         print(f"\n[FAIL] {result.message}", file=sys.stderr)
 
 
+def _run_server(config: AppConfig) -> None:
+    import uvicorn
+
+    from gotit.app import create_app
+
+    app = create_app(config)
+    uvicorn.run(app, host=config.server.host, port=config.server.port)
+
+
 def main() -> None:
     args = _parse_args()
     config = AppConfig()
@@ -74,10 +83,9 @@ def main() -> None:
     if args.text:
         asyncio.run(_run_text(config, args.text))
     elif args.mode == "server":
-        log.info("server_mode", host=config.server.host, port=config.server.port)
-        log.warning("server_mode_not_yet_implemented")
+        _run_server(config)
     else:
-        log.info("cli_mode", hint="Use --text 'your command' to run a text command")
+        log.info("cli_mode", hint="Use --text 'your command' or --mode server")
 
 
 if __name__ == "__main__":

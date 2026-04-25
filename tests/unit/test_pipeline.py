@@ -8,12 +8,10 @@ from gotit.domain.events import (
     ErrorEvent,
     ExecutionEvent,
     IntentEvent,
-    SearchEvent,
     TranscriptEvent,
 )
-from gotit.domain.models import ActionType, AudioChunk, ExecutionResult, Intent
+from gotit.domain.models import ActionType, AudioChunk, Intent
 from gotit.domain.pipeline import VoicePipeline
-from gotit.services.event_bus import EventBus
 
 
 @pytest.fixture
