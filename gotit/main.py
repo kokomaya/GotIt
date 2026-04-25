@@ -13,7 +13,10 @@ from gotit.config import AppConfig
 
 
 def configure_logging(*, debug: bool = False) -> None:
+    import io
+
     level = logging.DEBUG if debug else logging.INFO
+    log_output = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -22,7 +25,7 @@ def configure_logging(*, debug: bool = False) -> None:
             structlog.dev.ConsoleRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(level),
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+        logger_factory=structlog.PrintLoggerFactory(file=log_output),
     )
 
 
