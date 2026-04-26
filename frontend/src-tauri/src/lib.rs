@@ -6,7 +6,118 @@ use tauri::{
     AppHandle, Manager, WindowEvent,
 };
 
-struct BackendProcess(Mutex<Option<std::process::Child>>);
+struct BackendProcess {
+    child: Mutex<Option<std::process::Child>>,
+    #[cfg(windows)]
+    job: Mutex<Option<windows_job::JobObject>>,
+}
+
+#[cfg(windows)]
+mod windows_job {
+    use std::os::windows::io::AsRawHandle;
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn CreateJobObjectW(
+            lpJobAttributes: *mut std::ffi::c_void,
+            lpName: *const u16,
+        ) -> *mut std::ffi::c_void;
+        fn SetInformationJobObject(
+            hJob: *mut std::ffi::c_void,
+            JobObjectInformationClass: u32,
+            lpJobObjectInformation: *const std::ffi::c_void,
+            cbJobObjectInformationLength: u32,
+        ) -> i32;
+        fn AssignProcessToJobObject(
+            hJob: *mut std::ffi::c_void,
+            hProcess: *mut std::ffi::c_void,
+        ) -> i32;
+        fn CloseHandle(hObject: *mut std::ffi::c_void) -> i32;
+    }
+
+    const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: u32 = 0x2000;
+    const JOB_OBJECT_EXTENDED_LIMIT_INFORMATION: u32 = 9;
+
+    #[repr(C)]
+    #[derive(Default)]
+    struct IoCounters {
+        _data: [u64; 6],
+    }
+
+    #[repr(C)]
+    #[derive(Default)]
+    struct BasicLimitInformation {
+        _per_process_user_time_limit: i64,
+        _per_job_user_time_limit: i64,
+        limit_flags: u32,
+        _minimum_working_set_size: usize,
+        _maximum_working_set_size: usize,
+        _active_process_limit: u32,
+        _affinity: usize,
+        _priority_class: u32,
+        _scheduling_class: u32,
+    }
+
+    #[repr(C)]
+    #[derive(Default)]
+    struct ExtendedLimitInformation {
+        basic: BasicLimitInformation,
+        _io_info: IoCounters,
+        _process_memory_limit: usize,
+        _job_memory_limit: usize,
+        _peak_process_memory_used: usize,
+        _peak_job_memory_used: usize,
+    }
+
+    pub struct JobObject {
+        handle: *mut std::ffi::c_void,
+    }
+
+    unsafe impl Send for JobObject {}
+    unsafe impl Sync for JobObject {}
+
+    impl JobObject {
+        pub fn new() -> Option<Self> {
+            unsafe {
+                let handle = CreateJobObjectW(std::ptr::null_mut(), std::ptr::null());
+                if handle.is_null() {
+                    return None;
+                }
+
+                let mut info = ExtendedLimitInformation::default();
+                info.basic.limit_flags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+                let ok = SetInformationJobObject(
+                    handle,
+                    JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+                    &info as *const _ as *const std::ffi::c_void,
+                    std::mem::size_of::<ExtendedLimitInformation>() as u32,
+                );
+                if ok == 0 {
+                    CloseHandle(handle);
+                    return None;
+                }
+
+                Some(Self { handle })
+            }
+        }
+
+        pub fn assign(&self, child: &std::process::Child) -> bool {
+            unsafe {
+                let process_handle = child.as_raw_handle() as *mut std::ffi::c_void;
+                AssignProcessToJobObject(self.handle, process_handle) != 0
+            }
+        }
+    }
+
+    impl Drop for JobObject {
+        fn drop(&mut self) {
+            unsafe {
+                CloseHandle(self.handle);
+            }
+        }
+    }
+}
 
 #[tauri::command]
 fn show_launcher(app: AppHandle) {
@@ -58,26 +169,47 @@ fn toggle_launcher(app: &AppHandle) {
     }
 }
 
-fn start_python_backend() -> Option<std::process::Child> {
+fn kill_backend(app: &AppHandle) {
+    if let Some(state) = app.try_state::<BackendProcess>() {
+        if let Ok(mut guard) = state.child.lock() {
+            if let Some(ref mut child) = *guard {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            *guard = None;
+        }
+    }
+}
+
+fn start_python_backend() -> (Option<std::process::Child>, Option<windows_job::JobObject>) {
     let child = Command::new("uv")
         .args(["run", "gotit", "--mode", "server"])
         .current_dir(
             std::env::current_exe()
-                .ok()?
-                .parent()?
-                .parent()?
-                .parent()?,
+                .ok()
+                .and_then(|p| p.parent()?.parent()?.parent().map(|p| p.to_path_buf()))
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default()),
         )
         .spawn();
 
     match child {
-        Ok(c) => {
-            log::info!("Python backend started (pid: {})", c.id());
-            Some(c)
+        Ok(child) => {
+            log::info!("Python backend started (pid: {})", child.id());
+
+            let job = windows_job::JobObject::new();
+            if let Some(ref j) = job {
+                if j.assign(&child) {
+                    log::info!("Backend process assigned to job object (auto-kill on exit)");
+                } else {
+                    log::warn!("Failed to assign backend to job object");
+                }
+            }
+
+            (Some(child), job)
         }
         Err(e) => {
             log::error!("Failed to start Python backend: {}", e);
-            None
+            (None, None)
         }
     }
 }
@@ -89,7 +221,11 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
-        .manage(BackendProcess(Mutex::new(None)))
+        .manage(BackendProcess {
+            child: Mutex::new(None),
+            #[cfg(windows)]
+            job: Mutex::new(None),
+        })
         .invoke_handler(tauri::generate_handler![
             show_launcher,
             hide_launcher,
@@ -109,14 +245,7 @@ pub fn run() {
                 .on_menu_event(move |app, event| match event.id().as_ref() {
                     "show" => toggle_launcher(app),
                     "quit" => {
-                        // Kill backend before exit
-                        if let Some(state) = app.try_state::<BackendProcess>() {
-                            if let Ok(mut guard) = state.0.lock() {
-                                if let Some(ref mut child) = *guard {
-                                    let _ = child.kill();
-                                }
-                            }
-                        }
+                        kill_backend(app);
                         app.exit(0);
                     }
                     _ => {}
@@ -152,11 +281,14 @@ pub fn run() {
             }
 
             // --- Start Python backend ---
-            if let Some(child) = start_python_backend() {
-                if let Some(state) = app.try_state::<BackendProcess>() {
-                    if let Ok(mut guard) = state.0.lock() {
-                        *guard = Some(child);
-                    }
+            let (child, job) = start_python_backend();
+            if let Some(state) = app.try_state::<BackendProcess>() {
+                if let Ok(mut guard) = state.child.lock() {
+                    *guard = child;
+                }
+                #[cfg(windows)]
+                if let Ok(mut guard) = state.job.lock() {
+                    *guard = job;
                 }
             }
 
