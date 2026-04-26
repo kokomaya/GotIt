@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -12,7 +12,7 @@ from gotit.domain.models import ActionType, Intent, SearchResult
 
 @pytest.fixture
 def executor():
-    return WindowsExecutor()
+    return WindowsExecutor(search_config=None)
 
 
 class TestSearchAction:
@@ -59,8 +59,9 @@ class TestRunProgram:
         assert not result.success
         assert "No program" in result.message
 
+    @patch.object(WindowsExecutor, "_resolve_via_everything", new_callable=AsyncMock, return_value=None)
     @patch("gotit.adapters.executor.windows.shutil.which", return_value=None)
-    async def test_program_not_found(self, mock_which, executor):
+    async def test_program_not_found(self, mock_which, mock_ev, executor):
         intent = Intent(
             action=ActionType.RUN_PROGRAM, raw_text="run foo", target="nonexistent"
         )
@@ -80,6 +81,23 @@ class TestRunProgram:
         result = await executor.execute(intent, [])
         assert result.success
         mock_popen.assert_called_once()
+
+    @patch("gotit.adapters.executor.windows.subprocess.Popen")
+    @patch.object(
+        WindowsExecutor, "_resolve_via_everything",
+        new_callable=AsyncMock,
+        return_value="C:\\Program Files\\Notepad++\\notepad++.exe",
+    )
+    @patch("gotit.adapters.executor.windows.shutil.which", return_value=None)
+    async def test_fallback_to_everything(self, mock_which, mock_ev, mock_popen, executor):
+        intent = Intent(
+            action=ActionType.RUN_PROGRAM, raw_text="open notepad++", target="notepad++"
+        )
+        result = await executor.execute(intent, [])
+        assert result.success
+        mock_popen.assert_called_once_with(
+            ["C:\\Program Files\\Notepad++\\notepad++.exe"], shell=False
+        )
 
 
 class TestValidatePath:

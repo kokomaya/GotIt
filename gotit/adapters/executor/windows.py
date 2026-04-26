@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import shutil
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import structlog
 
 from gotit.domain.models import ActionType, ExecutionResult, Intent, SearchResult
+
+if TYPE_CHECKING:
+    from gotit.config import SearchConfig
 
 log = structlog.get_logger()
 
@@ -17,9 +22,14 @@ _BLOCKED_EXTENSIONS = {".bat", ".cmd", ".ps1", ".vbs", ".js", ".wsf", ".msi"}
 
 
 class WindowsExecutor:
+    def __init__(self, search_config: SearchConfig | None = None) -> None:
+        self._es_path = search_config.everything_path if search_config else "es.exe"
+
     async def execute(
         self, intent: Intent, targets: list[SearchResult]
     ) -> ExecutionResult:
+        if intent.action == ActionType.RUN_PROGRAM:
+            return await self._handle_run_program(intent, targets)
         handler = _HANDLERS.get(intent.action)
         if handler is None:
             return ExecutionResult(
@@ -28,6 +38,65 @@ class WindowsExecutor:
                 message=f"Unsupported action: {intent.action}",
             )
         return handler(intent, targets)
+
+    async def _handle_run_program(
+        self, intent: Intent, targets: list[SearchResult]
+    ) -> ExecutionResult:
+        program = intent.target
+        if not program:
+            return ExecutionResult(
+                success=False,
+                action=ActionType.RUN_PROGRAM,
+                message="No program specified",
+            )
+        log.info("resolving_program", program=program)
+        resolved = shutil.which(program)
+        if not resolved:
+            resolved = await self._resolve_via_everything(program)
+        if not resolved:
+            return ExecutionResult(
+                success=False,
+                action=ActionType.RUN_PROGRAM,
+                message=f"Program not found: {program}",
+            )
+
+        log.debug("running_program", program=resolved)
+        subprocess.Popen([resolved], shell=False)
+        return ExecutionResult(
+            success=True,
+            action=ActionType.RUN_PROGRAM,
+            message=f"Launched {program}",
+        )
+
+    async def _resolve_via_everything(self, program: str) -> str | None:
+        exe_name = program if program.lower().endswith(".exe") else f"{program}.exe"
+        cmd = [self._es_path, exe_name, "-n", "10"]
+        log.debug("everything_program_search", query=exe_name)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+        except (FileNotFoundError, TimeoutError):
+            log.warning("everything_resolve_unavailable")
+            return None
+
+        if proc.returncode != 0:
+            return None
+
+        lines = stdout.decode("utf-8", errors="replace").strip().splitlines()
+        for line in lines:
+            path = line.strip()
+            if not path:
+                continue
+            p = Path(path)
+            if p.suffix.lower() == ".exe" and p.is_file():
+                log.info("everything_resolved", program=program, path=path)
+                return path
+
+        return None
 
 
 def _handle_search(intent: Intent, targets: list[SearchResult]) -> ExecutionResult:
@@ -91,28 +160,6 @@ def _handle_open_folder(intent: Intent, targets: list[SearchResult]) -> Executio
     )
 
 
-def _handle_run_program(intent: Intent, targets: list[SearchResult]) -> ExecutionResult:
-    program = intent.target
-    if not program:
-        return ExecutionResult(
-            success=False, action=ActionType.RUN_PROGRAM, message="No program specified"
-        )
-
-    resolved = shutil.which(program)
-    if not resolved:
-        return ExecutionResult(
-            success=False,
-            action=ActionType.RUN_PROGRAM,
-            message=f"Program not found: {program}",
-        )
-
-    log.info("running_program", program=resolved)
-    subprocess.Popen([resolved], shell=False)
-    return ExecutionResult(
-        success=True, action=ActionType.RUN_PROGRAM, message=f"Launched {program}"
-    )
-
-
 def _handle_system_control(
     intent: Intent, targets: list[SearchResult]
 ) -> ExecutionResult:
@@ -141,6 +188,5 @@ _HANDLERS = {
     ActionType.SEARCH: _handle_search,
     ActionType.OPEN_FILE: _handle_open_file,
     ActionType.OPEN_FOLDER: _handle_open_folder,
-    ActionType.RUN_PROGRAM: _handle_run_program,
     ActionType.SYSTEM_CONTROL: _handle_system_control,
 }

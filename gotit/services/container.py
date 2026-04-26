@@ -62,4 +62,4 @@ class Container:
     def _build_executor(self):
         from gotit.adapters.executor.windows import WindowsExecutor
 
-        return WindowsExecutor()
+        return WindowsExecutor(search_config=self.config.search)
