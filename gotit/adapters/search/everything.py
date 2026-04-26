@@ -26,14 +26,19 @@ class EverythingAdapter:
         self, query: str, filters: dict[str, str] | None = None
     ) -> list[SearchResult]:
         es_query = _build_query(query, filters)
-        log.info("everything_search", query=es_query)
+        cmd = [
+            self._es_path,
+            es_query,
+            "-n",
+            str(self._max_results),
+            "-sort",
+            "date-modified-descending",
+        ]
+        log.debug("everything_search_command", command=cmd, filters=filters)
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                self._es_path,
-                es_query,
-                "-n", str(self._max_results),
-                "-sort", "date-modified-descending",
+                *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

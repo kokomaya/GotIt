@@ -27,6 +27,7 @@ class OpenAICompatibleAdapter:
         import openai
 
         self._model = config.model
+        self._fallback_models = config.fallback_models
         self._client = openai.OpenAI(
             api_key=config.api_key or None,
             base_url=config.base_url or None,
@@ -46,18 +47,32 @@ class OpenAICompatibleAdapter:
             history = "\n".join(f"- {c}" for c in ctx[-self._max_context :])
             user_content = f"Recent commands:\n{history}\n\nCurrent command: {text}"
 
-        log.debug("llm_request", model=self._model, text=text)
+        models_to_try = [self._model, *self._fallback_models]
+        raw = ""
 
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": user_content},
-            ],
-        )
+        for model in models_to_try:
+            if not model:
+                continue
+            log.debug("llm_request", model=model, text=text)
+            try:
+                response = self._client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {"role": "user", "content": user_content},
+                    ],
+                )
+                raw = (response.choices[0].message.content or "").strip()
+                if raw:
+                    log.debug("llm_response", model=model, raw=raw)
+                    break
+                log.warning("llm_empty_response", model=model)
+            except Exception as exc:
+                log.warning("llm_model_failed", model=model, error=str(exc))
 
-        raw = response.choices[0].message.content.strip()
-        log.debug("llm_response", raw=raw)
+        if not raw:
+            log.error("llm_all_models_failed", models=models_to_try)
+            raise RuntimeError("All LLM models returned empty responses")
 
         intent = _parse_response(raw, text)
 
@@ -68,7 +83,6 @@ class OpenAICompatibleAdapter:
         return intent
 
 
-# Keep backward-compatible alias
 ClaudeAdapter = OpenAICompatibleAdapter
 
 

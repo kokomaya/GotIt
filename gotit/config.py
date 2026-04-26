@@ -19,6 +19,7 @@ class STTConfig(BaseModel):
 class LLMConfig(BaseModel):
     provider: str = "openai"
     model: str = ""
+    fallback_models: list[str] = []
     api_key: str = ""
     base_url: str = ""
     system_prompt: str = ""
