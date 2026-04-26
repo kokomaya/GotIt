@@ -14,7 +14,7 @@ from gotit.domain.models import (
     Intent,
     SearchResult,
 )
-from gotit.domain.pipeline import VoicePipeline, _time_ref_to_range
+from gotit.domain.pipeline import VoicePipeline, _generate_wildcard_queries, _time_ref_to_range
 from gotit.services.event_bus import EventBus
 
 
@@ -251,3 +251,108 @@ class TestTimeRefToRange:
 
     def test_unknown(self):
         assert _time_ref_to_range("unknown_value") is None
+
+
+class TestGenerateWildcardQueries:
+    def test_multi_word(self):
+        result = _generate_wildcard_queries("SW Header format")
+        assert "*SW* *Header* *format*" in result  # order-independent (first)
+        assert "*SW*Header*format*" in result       # order-dependent
+        assert "SW_Header_format" in result
+        assert "SW-Header-format" in result
+        assert "SWHeaderformat" in result
+        assert "SwHeaderFormat" in result
+
+    def test_order_independent_is_first(self):
+        result = _generate_wildcard_queries("IPC concept")
+        assert result[0] == "*IPC* *concept*"
+
+    def test_single_word(self):
+        result = _generate_wildcard_queries("autosar")
+        assert result == ["*autosar*"]
+
+    def test_two_words(self):
+        result = _generate_wildcard_queries("travel request")
+        assert "*travel* *request*" in result
+        assert "*travel*request*" in result
+        assert "travel_request" in result
+        assert "TravelRequest" in result
+
+    def test_no_duplicate_variants(self):
+        result = _generate_wildcard_queries("a b")
+        assert len(result) == len(set(result))
+
+
+class TestSearchVariantsIntegration:
+    async def test_search_variants_tried_first(self):
+        """LLM search_variants are tried before code-generated wildcards."""
+        intent = Intent(
+            action=ActionType.OPEN_FILE,
+            raw_text="打开SW Header format表格",
+            query="SW Header format",
+            match_mode="fuzzy",
+            fuzzy_hints={
+                "partial_name": "SW Header format",
+                "likely_ext": ["xlsx"],
+                "search_variants": ["SW_HeaderFormat"],
+                "synonyms": [],
+            },
+        )
+
+        calls = []
+
+        class TrackingSearcher:
+            async def search(self, query, filters=None):
+                calls.append(query)
+                if query == "SW_HeaderFormat":
+                    return [SearchResult(path="C:\\doc\\SW_HeaderFormat.xlsx", filename="SW_HeaderFormat.xlsx")]
+                return []
+
+        pipeline = VoicePipeline(
+            stt=FakeSTT(),
+            llm=FakeLLM(intent),
+            searcher=TrackingSearcher(),
+            executor=FakeExecutor(),
+            event_bus=EventBus(),
+            activity_store=FakeActivityStore(),
+        )
+
+        result = await pipeline.run_from_text("打开SW Header format表格")
+        assert result.success
+        assert calls[0] == "SW_HeaderFormat"
+
+    async def test_wildcard_fallback_when_variants_miss(self):
+        """Code-generated wildcard query catches what variants miss."""
+        intent = Intent(
+            action=ActionType.OPEN_FILE,
+            raw_text="打开SW Header format表格",
+            query="SW Header format",
+            match_mode="fuzzy",
+            fuzzy_hints={
+                "partial_name": "SW Header format",
+                "likely_ext": ["xlsx"],
+                "search_variants": ["SW_HeaderFormat_v2"],
+                "synonyms": [],
+            },
+        )
+
+        class WildcardSearcher:
+            async def search(self, query, filters=None):
+                if "*" in query and "SW" in query and "Header" in query:
+                    return [SearchResult(
+                        path="C:\\doc\\ARS_SW_Header_formart.xlsx",
+                        filename="ARS_SW_Header_formart.xlsx",
+                    )]
+                return []
+
+        pipeline = VoicePipeline(
+            stt=FakeSTT(),
+            llm=FakeLLM(intent),
+            searcher=WildcardSearcher(),
+            executor=FakeExecutor(),
+            event_bus=EventBus(),
+            activity_store=FakeActivityStore(),
+        )
+
+        result = await pipeline.run_from_text("打开SW Header format表格")
+        assert result.success

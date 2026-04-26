@@ -129,6 +129,15 @@ def _handle_open_file(intent: Intent, targets: list[SearchResult]) -> ExecutionR
             success=False, action=ActionType.OPEN_FILE, message="No file found to open"
         )
 
+    if len(targets) > 1:
+        summary = "\n".join(f"  [{i + 1}] {r.filename}  ({r.path})" for i, r in enumerate(targets[:10]))
+        return ExecutionResult(
+            success=True,
+            action=ActionType.OPEN_FILE,
+            message=f"Found {len(targets)} matches:\n{summary}",
+            data={"count": len(targets), "pending_selection": True},
+        )
+
     target = targets[0]
     if not _validate_path(target.path):
         return ExecutionResult(

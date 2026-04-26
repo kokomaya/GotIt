@@ -6,7 +6,7 @@ import shutil
 
 import pytest
 
-from gotit.adapters.search.everything import EverythingAdapter, _build_query
+from gotit.adapters.search.everything import EverythingAdapter, _build_query_args
 from gotit.config import SearchConfig
 
 ES_PATH = "D:\\03_Tools\\Everything\\es.exe"
@@ -15,26 +15,34 @@ es_available = shutil.which(ES_PATH) is not None or __import__("os").path.isfile
 
 class TestBuildQuery:
     def test_simple_keyword(self):
-        assert _build_query("readme", None) == "readme"
+        assert _build_query_args("readme", None) == ["readme"]
 
     def test_with_ext_filter(self):
-        assert _build_query("*", {"ext": "pdf"}) == "ext:pdf"
+        assert _build_query_args("*", {"ext": "pdf"}) == ["ext:pdf"]
 
     def test_with_multiple_filters(self):
-        q = _build_query("report", {"ext": "docx", "dm": "thisweek"})
-        assert "ext:docx" in q
-        assert "dm:thisweek" in q
-        assert "report" in q
+        parts = _build_query_args("report", {"ext": "docx", "dm": "thisweek"})
+        assert "ext:docx" in parts
+        assert "dm:thisweek" in parts
+        assert "report" in parts
 
     def test_with_path_filter(self):
-        q = _build_query("*", {"path": "D:\\Projects"})
-        assert 'path:"D:\\Projects"' in q
+        parts = _build_query_args("*", {"path": "D:\\Projects"})
+        assert 'path:"D:\\Projects"' in parts
 
     def test_wildcard_alone(self):
-        assert _build_query("*", None) == "*"
+        assert _build_query_args("*", None) == ["*"]
 
     def test_empty_query_no_filters(self):
-        assert _build_query("", None) == "*"
+        assert _build_query_args("", None) == ["*"]
+
+    def test_wildcard_query_separate_from_filter(self):
+        parts = _build_query_args("*SW*Header*", {"ext": "xlsx"})
+        assert parts == ["ext:xlsx", "*SW*Header*"]
+
+    def test_order_independent_wildcards_split(self):
+        parts = _build_query_args("*IPC* *concept*", {"ext": "docx"})
+        assert parts == ["ext:docx", "*IPC*", "*concept*"]
 
 
 @pytest.mark.skipif(not es_available, reason="es.exe not found")

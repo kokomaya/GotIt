@@ -25,10 +25,10 @@ class EverythingAdapter:
     async def search(
         self, query: str, filters: dict[str, str] | None = None
     ) -> list[SearchResult]:
-        es_query = _build_query(query, filters)
+        query_parts = _build_query_args(query, filters)
         cmd = [
             self._es_path,
-            es_query,
+            *query_parts,
             "-n",
             str(self._max_results),
             "-sort",
@@ -71,7 +71,13 @@ class EverythingAdapter:
         return results
 
 
-def _build_query(query: str, filters: dict[str, str] | None) -> str:
+def _build_query_args(query: str, filters: dict[str, str] | None) -> list[str]:
+    """Build a list of separate CLI arguments for es.exe.
+
+    Each filter and the query term are separate arguments so that
+    wildcards in the query (e.g. *SW*Header*) are not quoted away
+    by subprocess on Windows.
+    """
     parts: list[str] = []
 
     if filters:
@@ -85,11 +91,15 @@ def _build_query(query: str, filters: dict[str, str] | None) -> str:
     if query and query != "*":
         ext_filter = filters.get("ext", "") if filters else ""
         if not (ext_filter and query == f"*.{ext_filter}"):
-            parts.append(query)
+            # Split space-separated terms into individual args so es.exe
+            # treats each as an independent search term (order-independent AND).
+            # e.g. "*IPC* *concept*" → ["*IPC*", "*concept*"]
+            for term in query.split():
+                parts.append(term)
     elif not parts:
         parts.append("*")
 
-    return " ".join(parts)
+    return parts
 
 
 def _path_to_search_result(filepath: str) -> SearchResult:

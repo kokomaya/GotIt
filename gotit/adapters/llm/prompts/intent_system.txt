@@ -45,6 +45,14 @@ Provide as many clues as possible to help resolve the fuzzy query:
   for "出差申请表" → ["travel request", "差旅申请", "出差申请"]
 - "likely_ext": Likely file extensions based on context.
   e.g. "申请表" → ["xlsx", "docx", "pdf"]
+- "search_variants": Different filename patterns the user might be referring to.
+  Generate common naming convention variants of the query keywords:
+  - With underscores: "SW_Header_format"
+  - CamelCase / PascalCase: "SWHeaderFormat", "SW_HeaderFormat"
+  - With hyphens: "SW-Header-format"
+  - No separator: "SWHeaderformat"
+  This helps match files that use different word separators or casing.
+  Only provide when the query contains multiple words. Omit for single-word queries.
 
 For match_mode "exact", omit fuzzy_hints entirely.
 
@@ -87,3 +95,6 @@ User: "打开我刚才在用的Excel"
 
 User: "打开PS"
 {"action":"run_program","query":null,"target":"PS","filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":null,"description":"Photoshop","synonyms":["photoshop","photoshop.exe","Adobe Photoshop"],"likely_ext":null},"confidence":0.85}
+
+User: "打开SW Header format表格"
+{"action":"open_file","query":"SW Header format","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":"SW Header format","description":"表格文件","synonyms":[],"likely_ext":["xlsx","xls","xlsm"],"search_variants":["SW_HeaderFormat","SW_Header_format","SW-Header-format","SWHeaderFormat","SW_Header_Format"]},"confidence":0.85}

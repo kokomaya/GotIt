@@ -113,10 +113,10 @@ class VoicePipeline:
             log.info("fuzzy_resolved", strategy="activity_history", count=len(results))
             return results
 
-        # Strategy 2: Everything + synonyms
-        results = await self._strategy_synonyms(intent, hints)
+        # Strategy 2: Everything search (variants + wildcards + synonyms)
+        results = await self._strategy_everything_search(intent, hints)
         if results:
-            log.info("fuzzy_resolved", strategy="synonyms", count=len(results))
+            log.info("fuzzy_resolved", strategy="everything_search", count=len(results))
             return results
 
         # Strategy 3: relaxed search
@@ -149,44 +149,81 @@ class VoicePipeline:
             for r in records
         ]
 
-    async def _strategy_synonyms(self, intent, hints: dict) -> list[SearchResult]:
-        queries: list[str] = []
-        if intent.query and intent.query != "*":
-            queries.append(intent.query)
-        queries.extend(hints.get("synonyms") or [])
-        if not queries:
-            return []
-
+    async def _strategy_everything_search(self, intent, hints: dict) -> list[SearchResult]:
         likely_ext = hints.get("likely_ext") or []
         seen: set[str] = set()
         all_results: list[SearchResult] = []
+        max_queries = 30
 
-        for q in queries:
-            if likely_ext:
-                for ext in likely_ext:
-                    filters = {**intent.filters, "ext": ext}
-                    for r in await self._searcher.search(q, filters):
+        query_groups: list[list[str]] = []
+
+        # Group 1: LLM search_variants (highest priority — LLM understands naming conventions)
+        if variants := hints.get("search_variants"):
+            query_groups.append(variants)
+
+        # Group 2: Code-generated wildcard queries (deterministic fallback)
+        base_query = intent.query or hints.get("partial_name") or ""
+        if base_query and base_query != "*":
+            query_groups.append(_generate_wildcard_queries(base_query))
+
+        # Group 3: synonyms
+        if synonyms := hints.get("synonyms"):
+            query_groups.append(synonyms)
+
+        queries_run = 0
+        for group in query_groups:
+            for q in group:
+                if queries_run >= max_queries or len(all_results) >= 20:
+                    return all_results[:20]
+
+                if likely_ext:
+                    for ext in likely_ext:
+                        if queries_run >= max_queries:
+                            break
+                        filters = {**intent.filters, "ext": ext}
+                        for r in await self._searcher.search(q, filters):
+                            if r.path not in seen:
+                                seen.add(r.path)
+                                all_results.append(r)
+                        queries_run += 1
+                else:
+                    for r in await self._searcher.search(q, intent.filters or None):
                         if r.path not in seen:
                             seen.add(r.path)
                             all_results.append(r)
-            else:
-                for r in await self._searcher.search(q, intent.filters or None):
-                    if r.path not in seen:
-                        seen.add(r.path)
-                        all_results.append(r)
+                    queries_run += 1
 
-            if len(all_results) >= 20:
-                break
+                if all_results:
+                    return all_results[:20]
 
         return all_results[:20]
 
     async def _strategy_relaxed(self, intent, hints: dict) -> list[SearchResult]:
+        likely_ext = hints.get("likely_ext") or []
         partial = hints.get("partial_name")
+
+        # 3a: wildcard partial_name, still filtered by likely_ext
+        if partial and likely_ext:
+            for ext in likely_ext:
+                results = await self._searcher.search(f"*{partial}*", {"ext": ext})
+                if results:
+                    return results
+
+        # 3b: wildcard partial_name, no ext filter
         if partial:
             results = await self._searcher.search(f"*{partial}*", None)
             if results:
+                # Prefer results matching likely_ext when available
+                if likely_ext:
+                    preferred = [
+                        r for r in results
+                        if Path(r.path).suffix.lstrip(".").lower() in {e.lower() for e in likely_ext}
+                    ]
+                    if preferred:
+                        return preferred
                 return results
 
+        # 3c: drop all filters, just query
         if intent.filters and intent.query:
             results = await self._searcher.search(intent.query, None)
             if results:
@@ -248,3 +285,48 @@ def _time_ref_to_range(time_ref: str | None) -> tuple[datetime, datetime] | None
     }
 
     return mapping.get(time_ref)
+
+
+def _generate_wildcard_queries(query: str) -> list[str]:
+    """Convert a natural language query into Everything wildcard search variants.
+
+    'IPC concept' → [
+        '*IPC* *concept*',        # order-independent — each word matched anywhere
+        '*IPC*concept*',          # order-dependent chain
+        'IPC_concept',            # underscore
+        'IPC-concept',            # hyphen
+        'IPCconcept',             # no separator
+        'IpcConcept',             # CamelCase
+    ]
+
+    The order-independent variant is most tolerant: it matches
+    'AUTOSAR_Concept_735-IPC_Stack' where 'concept' appears before 'IPC'.
+    es.exe treats separate args as AND (any order).
+    """
+    words = query.split()
+    if len(words) <= 1:
+        return [f"*{query}*"]
+
+    variants: list[str] = []
+
+    # Order-independent: each word as *word* — es.exe matches in any order
+    variants.append(" ".join(f"*{w}*" for w in words))
+
+    # Order-dependent wildcard chain
+    variants.append("*" + "*".join(words) + "*")
+
+    # Underscore
+    variants.append("_".join(words))
+
+    # Hyphen
+    variants.append("-".join(words))
+
+    # No separator
+    variants.append("".join(words))
+
+    # CamelCase
+    camel = "".join(w.capitalize() for w in words)
+    if camel != "".join(words):
+        variants.append(camel)
+
+    return list(dict.fromkeys(variants))
