@@ -119,4 +119,5 @@ def _parse_response(raw: str, original_text: str) -> Intent:
         confidence=float(data.get("confidence", 0.5)),
         match_mode=data.get("match_mode", "exact"),
         fuzzy_hints=data.get("fuzzy_hints"),
+        with_program=data.get("with_program"),
     )

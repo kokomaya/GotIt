@@ -13,19 +13,25 @@ from gotit.domain.models import SearchResult
 
 if TYPE_CHECKING:
     from gotit.config import SearchConfig
+    from gotit.services.filter_rules import FilterRules
 
 log = structlog.get_logger()
 
 
 class EverythingAdapter:
-    def __init__(self, config: SearchConfig) -> None:
+    def __init__(
+        self, config: SearchConfig, filter_rules: FilterRules | None = None
+    ) -> None:
         self._es_path = config.everything_path
         self._max_results = config.max_results
+        self._filter_rules = filter_rules
 
     async def search(
         self, query: str, filters: dict[str, str] | None = None
     ) -> list[SearchResult]:
         query_parts = _build_query_args(query, filters)
+        if self._filter_rules:
+            query_parts.extend(self._filter_rules.to_everything_excludes())
         cmd = [
             self._es_path,
             *query_parts,
@@ -66,6 +72,12 @@ class EverythingAdapter:
             if not line:
                 continue
             results.append(_path_to_search_result(line))
+
+        if self._filter_rules:
+            before = len(results)
+            results = [r for r in results if not self._filter_rules.should_exclude(r.path)]
+            if len(results) < before:
+                log.debug("filter_rules_excluded", excluded=before - len(results))
 
         log.info("everything_search_results", count=len(results))
         return results

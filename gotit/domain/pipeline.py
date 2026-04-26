@@ -67,7 +67,7 @@ class VoicePipeline:
 
         results: list[SearchResult] = []
 
-        if intent.action in (ActionType.SEARCH, ActionType.OPEN_FILE):
+        if intent.action in (ActionType.SEARCH, ActionType.OPEN_FILE, ActionType.OPEN_FOLDER):
             try:
                 if intent.match_mode == "fuzzy":
                     results = await self._fuzzy_resolve(intent)

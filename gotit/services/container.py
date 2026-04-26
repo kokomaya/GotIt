@@ -31,6 +31,11 @@ class Container:
         self.event_bus = EventBus()
         self.activity_store = None
         self.activity_tracker = None
+        self.filter_rules = None
+
+        from gotit.services.filter_rules import FilterRules
+
+        self.filter_rules = FilterRules.load(config.search.filter_rules_path)
 
         if config.activity.enabled:
             from gotit.services.activity_store import ActivityStore
@@ -73,7 +78,7 @@ class Container:
     def _build_searcher(self):
         from gotit.adapters.search.everything import EverythingAdapter
 
-        return EverythingAdapter(self.config.search)
+        return EverythingAdapter(self.config.search, filter_rules=self.filter_rules)
 
     def _build_executor(self):
         from gotit.adapters.executor.windows import WindowsExecutor

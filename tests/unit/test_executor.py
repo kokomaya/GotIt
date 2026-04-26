@@ -100,6 +100,49 @@ class TestRunProgram:
         )
 
 
+class TestOpenWithProgram:
+    @patch("gotit.adapters.executor.windows.subprocess.Popen")
+    @patch("gotit.adapters.executor.windows.shutil.which", return_value="C:\\Program Files\\Code\\code.exe")
+    async def test_open_file_with_program(self, mock_which, mock_popen, executor):
+        intent = Intent(
+            action=ActionType.OPEN_FILE, raw_text="用vscode打开config.ini",
+            with_program="code",
+        )
+        targets = [SearchResult(path="C:\\project\\config.ini", filename="config.ini")]
+        result = await executor.execute(intent, targets)
+        assert result.success
+        assert "code" in result.message.lower()
+        mock_popen.assert_called_once_with(
+            ["C:\\Program Files\\Code\\code.exe", "C:\\project\\config.ini"], shell=False
+        )
+
+    @patch("gotit.adapters.executor.windows.subprocess.Popen")
+    @patch("gotit.adapters.executor.windows.shutil.which", return_value="C:\\Program Files\\Code\\code.exe")
+    async def test_open_folder_with_program(self, mock_which, mock_popen, executor, tmp_path):
+        folder = str(tmp_path)
+        intent = Intent(
+            action=ActionType.OPEN_FOLDER, raw_text="用vscode打开项目",
+            target=folder, with_program="code",
+        )
+        result = await executor.execute(intent, [])
+        assert result.success
+        mock_popen.assert_called_once_with(
+            ["C:\\Program Files\\Code\\code.exe", folder], shell=False
+        )
+
+    @patch.object(WindowsExecutor, "_resolve_via_everything", new_callable=AsyncMock, return_value=None)
+    @patch("gotit.adapters.executor.windows.shutil.which", return_value=None)
+    async def test_with_program_not_found(self, mock_which, mock_ev, executor):
+        intent = Intent(
+            action=ActionType.OPEN_FILE, raw_text="用unknown打开文件",
+            with_program="unknown_editor",
+        )
+        targets = [SearchResult(path="C:\\doc.txt", filename="doc.txt")]
+        result = await executor.execute(intent, targets)
+        assert not result.success
+        assert "not found" in result.message
+
+
 class TestValidatePath:
     def test_normal_path(self):
         assert _validate_path("C:\\Users\\test\\doc.pdf")

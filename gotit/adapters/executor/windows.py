@@ -30,6 +30,10 @@ class WindowsExecutor:
     ) -> ExecutionResult:
         if intent.action == ActionType.RUN_PROGRAM:
             return await self._handle_run_program(intent, targets)
+        if intent.action == ActionType.OPEN_FILE:
+            return await self._handle_open_file(intent, targets)
+        if intent.action == ActionType.OPEN_FOLDER:
+            return await self._handle_open_folder(intent, targets)
         handler = _HANDLERS.get(intent.action)
         if handler is None:
             return ExecutionResult(
@@ -78,6 +82,96 @@ class WindowsExecutor:
             message=f"Launched {program}",
         )
 
+    async def _handle_open_file(
+        self, intent: Intent, targets: list[SearchResult]
+    ) -> ExecutionResult:
+        if not targets:
+            return ExecutionResult(
+                success=False, action=ActionType.OPEN_FILE, message="No file found to open"
+            )
+
+        if len(targets) > 1:
+            summary = "\n".join(
+                f"  [{i + 1}] {r.filename}  ({r.path})" for i, r in enumerate(targets[:10])
+            )
+            return ExecutionResult(
+                success=True,
+                action=ActionType.OPEN_FILE,
+                message=f"Found {len(targets)} matches:\n{summary}",
+                data={"count": len(targets), "pending_selection": True},
+            )
+
+        target = targets[0]
+        if not _validate_path(target.path):
+            return ExecutionResult(
+                success=False,
+                action=ActionType.OPEN_FILE,
+                message=f"Blocked: {target.filename}",
+            )
+
+        if intent.with_program:
+            return await self._open_with_program(
+                intent.with_program, target.path, ActionType.OPEN_FILE
+            )
+
+        log.info("opening_file", path=target.path)
+        os.startfile(target.path)
+        return ExecutionResult(
+            success=True, action=ActionType.OPEN_FILE, message=f"Opened {target.filename}"
+        )
+
+    async def _handle_open_folder(
+        self, intent: Intent, targets: list[SearchResult]
+    ) -> ExecutionResult:
+        folder = intent.target
+        if not folder and targets:
+            p = Path(targets[0].path)
+            folder = str(p) if p.is_dir() else str(p.parent)
+
+        if not folder:
+            return ExecutionResult(
+                success=False, action=ActionType.OPEN_FOLDER, message="No folder specified"
+            )
+
+        if not Path(folder).is_dir():
+            return ExecutionResult(
+                success=False,
+                action=ActionType.OPEN_FOLDER,
+                message=f"Not a folder: {folder}",
+            )
+
+        if intent.with_program:
+            return await self._open_with_program(
+                intent.with_program, folder, ActionType.OPEN_FOLDER
+            )
+
+        log.info("opening_folder", path=folder)
+        subprocess.Popen(["explorer.exe", folder])
+        return ExecutionResult(
+            success=True, action=ActionType.OPEN_FOLDER, message=f"Opened {folder}"
+        )
+
+    async def _open_with_program(
+        self, program: str, target_path: str, action: ActionType
+    ) -> ExecutionResult:
+        resolved = shutil.which(program)
+        if not resolved:
+            resolved = await self._resolve_via_everything(program)
+        if not resolved:
+            return ExecutionResult(
+                success=False,
+                action=action,
+                message=f"Program not found: {program}",
+            )
+
+        log.info("opening_with_program", program=resolved, target=target_path)
+        subprocess.Popen([resolved, target_path], shell=False)
+        return ExecutionResult(
+            success=True,
+            action=action,
+            message=f"Opened {Path(target_path).name} with {Path(resolved).stem}",
+        )
+
     async def _resolve_via_everything(self, program: str) -> str | None:
         exe_name = program if program.lower().endswith(".exe") else f"{program}.exe"
         cmd = [self._es_path, exe_name, "-n", "10"]
@@ -123,62 +217,6 @@ def _handle_search(intent: Intent, targets: list[SearchResult]) -> ExecutionResu
     )
 
 
-def _handle_open_file(intent: Intent, targets: list[SearchResult]) -> ExecutionResult:
-    if not targets:
-        return ExecutionResult(
-            success=False, action=ActionType.OPEN_FILE, message="No file found to open"
-        )
-
-    if len(targets) > 1:
-        summary = "\n".join(f"  [{i + 1}] {r.filename}  ({r.path})" for i, r in enumerate(targets[:10]))
-        return ExecutionResult(
-            success=True,
-            action=ActionType.OPEN_FILE,
-            message=f"Found {len(targets)} matches:\n{summary}",
-            data={"count": len(targets), "pending_selection": True},
-        )
-
-    target = targets[0]
-    if not _validate_path(target.path):
-        return ExecutionResult(
-            success=False,
-            action=ActionType.OPEN_FILE,
-            message=f"Blocked: {target.filename}",
-        )
-
-    log.info("opening_file", path=target.path)
-    os.startfile(target.path)
-    return ExecutionResult(
-        success=True,
-        action=ActionType.OPEN_FILE,
-        message=f"Opened {target.filename}",
-    )
-
-
-def _handle_open_folder(intent: Intent, targets: list[SearchResult]) -> ExecutionResult:
-    folder = intent.target
-    if not folder and targets:
-        folder = str(Path(targets[0].path).parent)
-
-    if not folder:
-        return ExecutionResult(
-            success=False, action=ActionType.OPEN_FOLDER, message="No folder specified"
-        )
-
-    if not Path(folder).is_dir():
-        return ExecutionResult(
-            success=False,
-            action=ActionType.OPEN_FOLDER,
-            message=f"Not a folder: {folder}",
-        )
-
-    log.info("opening_folder", path=folder)
-    subprocess.Popen(["explorer.exe", folder])
-    return ExecutionResult(
-        success=True, action=ActionType.OPEN_FOLDER, message=f"Opened {folder}"
-    )
-
-
 def _handle_system_control(
     intent: Intent, targets: list[SearchResult]
 ) -> ExecutionResult:
@@ -205,7 +243,5 @@ def _validate_path(filepath: str) -> bool:
 
 _HANDLERS = {
     ActionType.SEARCH: _handle_search,
-    ActionType.OPEN_FILE: _handle_open_file,
-    ActionType.OPEN_FOLDER: _handle_open_folder,
     ActionType.SYSTEM_CONTROL: _handle_system_control,
 }

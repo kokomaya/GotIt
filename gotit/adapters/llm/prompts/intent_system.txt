@@ -14,12 +14,13 @@ The user speaks a command (in Chinese or English). Parse it into a structured JS
 
 You MUST output ONLY a JSON object — no explanation, no markdown fences:
 
-{"action":"<action_type>","query":"<search keywords for Everything>","target":"<explicit path or program name if specified, otherwise null>","filters":{"ext":"<file extension>","path":"<path filter>","dm":"<date modified: today, yesterday, thisweek, thismonth>"},"match_mode":"exact|fuzzy","fuzzy_hints":{...},"confidence":0.95}
+{"action":"<action_type>","query":"<search keywords for Everything>","target":"<explicit path or program name if specified, otherwise null>","filters":{"ext":"<file extension>","path":"<path filter>","dm":"<date modified: today, yesterday, thisweek, thismonth>"},"match_mode":"exact|fuzzy","fuzzy_hints":{...},"with_program":"<program to open the target with, or null>","confidence":0.95}
 
 Rules:
 - "query" should be suitable for Everything search (simple keywords, no natural language).
 - "filters" only include keys that apply. Omit keys with no value.
 - "target" is only set when the user explicitly names a path or program.
+- "with_program" is set when the user wants to open a file/folder with a SPECIFIC program (e.g. "用vscode打开", "用notepad++打开"). Set to the program's common CLI name (e.g. "code" for VS Code, "notepad++" for Notepad++). Null when using default program.
 - "confidence" is your confidence in the parse (0.0-1.0).
 
 ## match_mode field
@@ -98,3 +99,12 @@ User: "打开PS"
 
 User: "打开SW Header format表格"
 {"action":"open_file","query":"SW Header format","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":"SW Header format","description":"表格文件","synonyms":[],"likely_ext":["xlsx","xls","xlsm"],"search_variants":["SW_HeaderFormat","SW_Header_format","SW-Header-format","SWHeaderFormat","SW_Header_Format"]},"confidence":0.85}
+
+User: "使用vscode打开adas_mtsi的仓库"
+{"action":"open_folder","query":"adas_mtsi","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"partial_name":"adas_mtsi","description":"代码仓库文件夹","synonyms":[],"likely_ext":null},"with_program":"code","confidence":0.9}
+
+User: "用notepad++打开config.ini"
+{"action":"open_file","query":"config.ini","target":null,"filters":{"ext":"ini"},"match_mode":"exact","with_program":"notepad++","confidence":0.9}
+
+User: "用Excel打开report.csv"
+{"action":"open_file","query":"report.csv","target":null,"filters":{"ext":"csv"},"match_mode":"exact","with_program":"excel","confidence":0.9}

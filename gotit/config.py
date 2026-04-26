@@ -29,6 +29,7 @@ class LLMConfig(BaseModel):
 class SearchConfig(BaseModel):
     everything_path: str = "es.exe"
     max_results: int = 20
+    filter_rules_path: str = "~/.gotit/filters.yaml"
 
 
 class AudioConfig(BaseModel):

@@ -42,6 +42,7 @@ class Intent:
     confidence: float = 1.0
     match_mode: str = "exact"
     fuzzy_hints: dict[str, Any] | None = None
+    with_program: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

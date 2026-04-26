@@ -30,21 +30,17 @@
         "label": "main",
         "title": "GotIt",
         "url": "/index.html",
-        "width": 700,
-        "height": 500,
+        "width": 1200,
+        "height": 600,
         "decorations": false,
         "visible": false,
         "center": true,
-        "resizable": true
+        "resizable": true,
+        "maximizable": true
       }
     ],
     "security": {
       "csp": "default-src 'self'; connect-src 'self' ws://127.0.0.1:8765 http://127.0.0.1:8765; style-src 'self' 'unsafe-inline'"
-    },
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": false,
-      "tooltip": "GotIt"
     }
   },
   "bundle": {
