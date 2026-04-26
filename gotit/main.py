@@ -55,12 +55,16 @@ async def _run_text(config: AppConfig, text: str) -> None:
     pipeline = container.build_pipeline(require_stt=False)
 
     log.info("processing_text", text=text)
-    result = await pipeline.run_from_text(text)
+    try:
+        result = await pipeline.run_from_text(text)
 
-    if result.success:
-        print(f"\n[OK] {result.message}")
-    else:
-        print(f"\n[FAIL] {result.message}", file=sys.stderr)
+        if result.success:
+            print(f"\n[OK] {result.message}")
+        else:
+            print(f"\n[FAIL] {result.message}", file=sys.stderr)
+    finally:
+        if container.activity_store:
+            await container.activity_store.close()
 
 
 def _run_server(config: AppConfig) -> None:

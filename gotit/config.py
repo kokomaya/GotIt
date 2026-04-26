@@ -47,6 +47,24 @@ class ServerConfig(BaseModel):
     port: int = 8765
 
 
+class ActivityConfig(BaseModel):
+    enabled: bool = True
+    retention_days: int = 14
+    db_path: str = "~/.gotit/activity.db"
+    recent_scan_interval: int = 30
+    window_poll_interval: int = 10
+    enable_llm_retry: bool = False
+    excluded_programs: list[str] = [
+        "explorer.exe",
+        "SearchHost.exe",
+        "ShellExperienceHost.exe",
+        "SystemSettings.exe",
+    ]
+    excluded_extensions: list[str] = [
+        "tmp", "log", "lock", "lnk",
+    ]
+
+
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="GOTIT_",
@@ -62,4 +80,5 @@ class AppConfig(BaseSettings):
     audio: AudioConfig = AudioConfig()
     ui: UIConfig = UIConfig()
     server: ServerConfig = ServerConfig()
+    activity: ActivityConfig = ActivityConfig()
     debug: bool = False

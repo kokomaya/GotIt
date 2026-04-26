@@ -29,6 +29,13 @@ class Container:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         self.event_bus = EventBus()
+        self.activity_store = None
+        self.activity_tracker = None
+
+        if config.activity.enabled:
+            from gotit.services.activity_store import ActivityStore
+
+            self.activity_store = ActivityStore(config.activity.db_path)
 
     def build_pipeline(self, *, require_stt: bool = True) -> VoicePipeline:
         return VoicePipeline(
@@ -37,7 +44,16 @@ class Container:
             searcher=self._build_searcher(),
             executor=self._build_executor(),
             event_bus=self.event_bus,
+            activity_store=self.activity_store,
         )
+
+    def build_tracker(self):
+        if not self.config.activity.enabled or not self.activity_store:
+            return None
+        from gotit.adapters.activity.tracker import ActivityTracker
+
+        self.activity_tracker = ActivityTracker(self.activity_store, self.config.activity)
+        return self.activity_tracker
 
     def _build_stt(self):
         from gotit.adapters.stt.whisper_cpp import WhisperCppAdapter

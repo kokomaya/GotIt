@@ -43,21 +43,31 @@ class WindowsExecutor:
         self, intent: Intent, targets: list[SearchResult]
     ) -> ExecutionResult:
         program = intent.target
-        if not program:
+        if not program and not targets:
             return ExecutionResult(
                 success=False,
                 action=ActionType.RUN_PROGRAM,
                 message="No program specified",
             )
-        log.info("resolving_program", program=program)
-        resolved = shutil.which(program)
-        if not resolved:
-            resolved = await self._resolve_via_everything(program)
+
+        resolved = None
+        # Use pre-resolved path from fuzzy resolution if available
+        if targets and targets[0].path.lower().endswith(".exe"):
+            candidate = Path(targets[0].path)
+            if candidate.is_file():
+                resolved = str(candidate)
+
+        if not resolved and program:
+            log.info("resolving_program", program=program)
+            resolved = shutil.which(program)
+            if not resolved:
+                resolved = await self._resolve_via_everything(program)
+
         if not resolved:
             return ExecutionResult(
                 success=False,
                 action=ActionType.RUN_PROGRAM,
-                message=f"Program not found: {program}",
+                message=f"Program not found: {program or '(unknown)'}",
             )
 
         log.debug("running_program", program=resolved)

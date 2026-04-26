@@ -117,4 +117,6 @@ def _parse_response(raw: str, original_text: str) -> Intent:
         target=data.get("target"),
         filters={k: v for k, v in data.get("filters", {}).items() if v},
         confidence=float(data.get("confidence", 0.5)),
+        match_mode=data.get("match_mode", "exact"),
+        fuzzy_hints=data.get("fuzzy_hints"),
     )

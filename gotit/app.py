@@ -30,6 +30,10 @@ def create_app(config: AppConfig) -> FastAPI:
         pipeline = container.build_pipeline(require_stt=False)
         session = SessionManager()
 
+        tracker = container.build_tracker()
+        if tracker:
+            await tracker.start()
+
         app.state.app_state = _AppState(
             config=config,
             pipeline=pipeline,
@@ -37,7 +41,14 @@ def create_app(config: AppConfig) -> FastAPI:
             session=session,
         )
         log.info("server_ready", host=config.server.host, port=config.server.port)
-        yield
+
+        try:
+            yield
+        finally:
+            if tracker:
+                await tracker.stop()
+            if container.activity_store:
+                await container.activity_store.close()
 
     app = FastAPI(title="GotIt", version="0.1.0", lifespan=lifespan)
 

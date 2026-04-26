@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -40,6 +40,8 @@ class Intent:
     target: str | None = None
     filters: dict[str, str] = field(default_factory=dict)
     confidence: float = 1.0
+    match_mode: str = "exact"
+    fuzzy_hints: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +58,16 @@ class SearchResult:
     size: int = 0
     modified: datetime | None = None
     match_score: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class ActivityRecord:
+    path: str
+    name: str
+    activity_type: str
+    last_opened: datetime
+    open_count: int = 1
+    window_title: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -3,6 +3,15 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
+name = "aiosqlite"
+version = "0.22.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/8a/64761f4005f17809769d23e518d915db74e6310474e733e3593cfc854ef1/aiosqlite-0.22.1.tar.gz", hash = "sha256:043e0bd78d32888c0a9ca90fc788b38796843360c855a7262a532813133a0650", size = 14821, upload-time = "2025-12-23T19:25:43.997Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/b7/e3bf5133d697a08128598c8d0abc5e16377b51465a33756de24fa7dee953/aiosqlite-0.22.1-py3-none-any.whl", hash = "sha256:21c002eb13823fad740196c5a2e9d8e62f6243bd9e7e4a1f87fb5e44ecb4fceb", size = 17405, upload-time = "2025-12-23T19:25:42.139Z" },
+]
+
+[[package]]
 name = "annotated-doc"
 version = "0.0.4"
 source = { registry = "https://pypi.org/simple" }
@@ -223,11 +232,13 @@ name = "gotit"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "aiosqlite" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "numpy" },
     { name = "openai" },
     { name = "pydantic-settings" },
+    { name = "pylnk3" },
     { name = "pywhispercpp" },
     { name = "sounddevice" },
     { name = "structlog" },
@@ -243,11 +254,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiosqlite", specifier = ">=0.20.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "numpy", specifier = ">=2.1.0" },
     { name = "openai", specifier = ">=1.60.0" },
     { name = "pydantic-settings", specifier = ">=2.7.0" },
+    { name = "pylnk3", specifier = ">=0.4.0" },
     { name = "pywhispercpp", specifier = ">=1.4.0" },
     { name = "sounddevice", specifier = ">=0.5.0" },
     { name = "structlog", specifier = ">=24.4.0" },
@@ -644,6 +657,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/c3/b2/bc9c9196916376152d655522fdcebac55e66de6603a76a02bca1b6414f6c/pygments-2.20.0.tar.gz", hash = "sha256:6757cd03768053ff99f3039c1a36d6c0aa0b263438fcab17520b30a303a82b5f", size = 4955991, upload-time = "2026-03-29T13:29:33.898Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl", hash = "sha256:81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176", size = 1231151, upload-time = "2026-03-29T13:29:30.038Z" },
+]
+
+[[package]]
+name = "pylnk3"
+version = "0.4.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b9/7c/8f824baeeb854ebb3c5f547c791cde05733a2e66ae4f249a70ff23c2b7ab/pylnk3-0.4.3.tar.gz", hash = "sha256:fbc5f512b581382c2a4c11e6df3796f9975bcfd99e3fca2afe531ea61b3c4ac2", size = 23324, upload-time = "2025-04-28T19:06:52.103Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/31/86/ed659fbdce3befc0ad059e7c8186b9fceff5b9301122a3930016747b2f9d/pylnk3-0.4.3-py3-none-any.whl", hash = "sha256:fafa9293290163fed30541fb38f7df21a0e3f6fcc8324597a898ce694c9a593d", size = 21952, upload-time = "2025-04-28T19:06:50.509Z" },
 ]
 
 [[package]]

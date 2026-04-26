@@ -13,6 +13,8 @@ dependencies = [
     "pywhispercpp>=1.4.0",
     "sounddevice>=0.5.0",
     "numpy>=2.1.0",
+    "aiosqlite>=0.20.0",
+    "pylnk3>=0.4.0",
 ]
 
 [project.scripts]
