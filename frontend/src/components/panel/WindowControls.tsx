@@ -7,17 +7,17 @@ interface WindowControlsProps {
 export function WindowControls({ onClose }: WindowControlsProps) {
   const isTauri = "__TAURI__" in window;
 
-  const handleMinimize = () => {
-    if (isTauri) getCurrentWindow().minimize();
+  const handleMinimize = async () => {
+    if (isTauri) await getCurrentWindow().minimize();
   };
 
-  const handleMaximize = () => {
-    if (isTauri) getCurrentWindow().toggleMaximize();
+  const handleMaximize = async () => {
+    if (isTauri) await getCurrentWindow().toggleMaximize();
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
     if (isTauri) {
-      getCurrentWindow().hide();
+      await getCurrentWindow().hide();
     }
     onClose();
   };
@@ -25,6 +25,7 @@ export function WindowControls({ onClose }: WindowControlsProps) {
   return (
     <div className="flex items-center gap-1">
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={handleMinimize}
         className="flex h-7 w-7 items-center justify-center rounded text-[var(--color-text-secondary)] transition-colors hover:bg-white/10"
         title="Minimize"
@@ -34,6 +35,7 @@ export function WindowControls({ onClose }: WindowControlsProps) {
         </svg>
       </button>
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={handleMaximize}
         className="flex h-7 w-7 items-center justify-center rounded text-[var(--color-text-secondary)] transition-colors hover:bg-white/10"
         title="Maximize"
@@ -52,6 +54,7 @@ export function WindowControls({ onClose }: WindowControlsProps) {
         </svg>
       </button>
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={handleClose}
         className="flex h-7 w-7 items-center justify-center rounded text-[var(--color-text-secondary)] transition-colors hover:bg-red-500/80 hover:text-white"
         title="Close"

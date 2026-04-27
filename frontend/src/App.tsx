@@ -1,10 +1,18 @@
 import "./index.css";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useAppStore } from "./stores/appStore";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { WindowControls } from "./components/panel/WindowControls";
 import { PipelineProgress } from "./components/panel/PipelineProgress";
 import { ResultList } from "./components/panel/ResultList";
 import { ActionFeedback } from "./components/panel/ActionFeedback";
+
+function handleDragStart(e: React.PointerEvent) {
+  if ("__TAURI__" in window) {
+    e.preventDefault();
+    getCurrentWindow().startDragging();
+  }
+}
 
 export default function App() {
   const {
@@ -24,10 +32,12 @@ export default function App() {
 
   if (phase === "dormant") {
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center bg-[var(--color-bg-primary)]">
-        <div className="absolute inset-0" data-tauri-drag-region />
-        <h1 className="relative text-2xl font-bold text-[var(--color-accent)]">GotIt</h1>
-        <p className="relative mt-2 text-sm text-[var(--color-text-secondary)]">
+      <div
+        className="relative flex min-h-screen flex-col items-center justify-center bg-[var(--color-bg-primary)]"
+        onPointerDown={handleDragStart}
+      >
+        <h1 className="text-2xl font-bold text-[var(--color-accent)]">GotIt</h1>
+        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
           Waiting for input...
         </p>
         <div className="absolute right-2 top-2">
@@ -40,13 +50,14 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-bg-primary)]">
       {/* Header — draggable title bar */}
-      <div className="relative flex items-center border-b border-white/10 px-5 py-2">
-        {/* Drag region covers the full header behind the buttons */}
-        <div className="absolute inset-0" data-tauri-drag-region />
-        <h1 className="relative text-base font-semibold text-[var(--color-accent)]">
+      <div
+        className="flex items-center border-b border-white/10 px-5 py-2"
+        onPointerDown={handleDragStart}
+      >
+        <h1 className="text-base font-semibold text-[var(--color-accent)]">
           GotIt
         </h1>
-        <div className="relative ml-auto">
+        <div className="ml-auto">
           <WindowControls onClose={reset} />
         </div>
       </div>
