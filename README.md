@@ -84,98 +84,173 @@ cd frontend && npm run dev
 
 Then open `http://localhost:5173` (Main Panel) or `http://localhost:5173/launcher.html` (Launcher Bar).
 
-## Build & Package (Tauri Desktop App)
+---
 
-### Prerequisites for building
+## Configuration
 
-1. **Rust toolchain** — `rustc --version` should work
-2. **Tauri CLI** — install if not already:
+GotIt loads configuration from three sources (later overrides earlier):
+
+1. **`~/.gotit/.env`** — user home config (recommended for release)
+2. **`.env`** in project directory — for development
+3. **System environment variables** — highest priority
+
+### First-time Setup (Release)
+
+Run the setup script to create `~/.gotit/.env` interactively:
+
+```bash
+scripts\setup.bat
+```
+
+Or create `%USERPROFILE%\.gotit\.env` manually with the following content:
+
+```env
+# --- LLM (required) ---
+GOTIT_LLM__PROVIDER=openai
+GOTIT_LLM__API_KEY=your-api-key-here
+GOTIT_LLM__MODEL=gpt-4o
+GOTIT_LLM__BASE_URL=https://your-api-endpoint/v1
+
+# --- Search (required) ---
+GOTIT_SEARCH__EVERYTHING_PATH=D:\03_Tools\Everything\es.exe
+
+# --- Optional ---
+GOTIT_LLM__FALLBACK_MODELS=[]
+GOTIT_SEARCH__MAX_RESULTS=20
+GOTIT_SERVER__HOST=127.0.0.1
+GOTIT_SERVER__PORT=8765
+GOTIT_DEBUG=false
+```
+
+### All Configuration Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GOTIT_LLM__PROVIDER` | LLM provider | `openai` |
+| `GOTIT_LLM__API_KEY` | API token for LLM service | (required) |
+| `GOTIT_LLM__MODEL` | Primary model name | (required) |
+| `GOTIT_LLM__BASE_URL` | OpenAI-compatible API endpoint | |
+| `GOTIT_LLM__FALLBACK_MODELS` | Fallback models (JSON array) | `[]` |
+| `GOTIT_LLM__EXTRA_HEADERS` | Custom HTTP headers (JSON object) | `{}` |
+| `GOTIT_SEARCH__EVERYTHING_PATH` | Path to `es.exe` | `es.exe` |
+| `GOTIT_SEARCH__MAX_RESULTS` | Max search results per query | `20` |
+| `GOTIT_SEARCH__FILTER_RULES_PATH` | Path to filter rules YAML | `~/.gotit/filters.yaml` |
+| `GOTIT_STT__ENGINE` | Speech-to-text engine | `whisper_cpp` |
+| `GOTIT_STT__MODEL_PATH` | Path to whisper model file | `models/ggml-base.bin` |
+| `GOTIT_STT__LANGUAGE` | STT language | `zh` |
+| `GOTIT_AUDIO__DEVICE_INDEX` | Audio device index (empty=default) | |
+| `GOTIT_AUDIO__SAMPLE_RATE` | Audio sample rate | `16000` |
+| `GOTIT_UI__AUTO_CLOSE_DELAY` | Main Panel auto-close seconds | `3` |
+| `GOTIT_UI__GLOBAL_HOTKEY` | Global hotkey | `Ctrl+Shift+G` |
+| `GOTIT_SERVER__HOST` | Server bind address | `127.0.0.1` |
+| `GOTIT_SERVER__PORT` | Server port | `8765` |
+| `GOTIT_ACTIVITY__ENABLED` | Enable activity tracking | `true` |
+| `GOTIT_ACTIVITY__RETENTION_DAYS` | Activity data retention | `14` |
+| `GOTIT_ACTIVITY__DB_PATH` | Activity database path | `~/.gotit/activity.db` |
+| `GOTIT_DEBUG` | Enable debug logging | `false` |
+
+---
+
+## User Data Files
+
+All user data is stored in `~/.gotit/` (`%USERPROFILE%\.gotit\`):
+
+| File | Description | Editable |
+|------|-------------|----------|
+| `.env` | Configuration (API keys, paths) | Yes |
+| `intent_prompt.md` | Custom LLM intent prompt (overrides built-in) | Yes |
+| `filters.yaml` | Search result filter rules | Yes |
+| `learned_mappings.yaml` | Learned command-to-file mappings (auto-generated) | Yes |
+| `activity.db` | Activity history database (auto-generated) | No |
+
+### Custom Intent Prompt
+
+GotIt uses an LLM prompt to parse user commands into structured intents. To customize it:
+
+1. Copy the built-in prompt to your user directory:
    ```bash
-   cargo install tauri-cli --version "^2"
+   copy gotit\adapters\llm\prompts\intent_system.md %USERPROFILE%\.gotit\intent_prompt.md
    ```
-3. **Node.js + npm** — for frontend build
-4. **uv** — for Python backend
+2. Edit `~/.gotit/intent_prompt.md` to add your own examples, tools, or project context.
+3. Restart GotIt — it will use your custom prompt automatically.
+
+If `~/.gotit/intent_prompt.md` exists, it takes priority over the built-in prompt.
+
+### Search Result Filters
+
+Manage filter rules via CLI:
+
+```bash
+gotit filter list                    # Show all filter rules
+gotit filter add path .cache         # Exclude paths containing .cache
+gotit filter add filename "*.log"    # Exclude log files
+gotit filter add ext dll             # Exclude .dll files
+gotit filter remove path .cache      # Remove a rule
+gotit filter path                    # Show filters.yaml location
+```
+
+Or edit `~/.gotit/filters.yaml` directly.
+
+---
+
+## Build & Package
 
 ### Development mode (Tauri)
-
-Run the full Tauri app in dev mode (auto-reloads on code changes):
 
 ```bash
 cd frontend
 npx tauri dev
 ```
 
-This will:
-- Start the Vite dev server (frontend)
-- Compile and launch the Tauri Rust shell
-- Show the system tray icon
-- Register `Ctrl+Shift+G` global shortcut
-
-> **Note:** The Python backend needs to be started separately in another terminal:
-> ```bash
-> uv run gotit --mode server
-> ```
+> The Python backend starts automatically via Tauri.
 
 ### Production build
 
-Build a distributable installer:
+Use the build scripts in `scripts/`:
 
 ```bash
-cd frontend
-npx tauri build
+scripts\build-release.bat    # Release build (ERROR-only logs, NSIS installer)
+scripts\build-debug.bat      # Debug build (full logging)
+scripts\build-all.bat        # Both versions
 ```
 
-This will:
-1. Run `npm run build` (compile TypeScript + bundle frontend)
-2. Compile the Rust binary in release mode
-3. Generate an NSIS installer at:
-   ```
-   frontend/src-tauri/target/release/bundle/nsis/GotIt_0.1.0_x64-setup.exe
-   ```
+Output:
+- **Installer**: `frontend\src-tauri\target\release\bundle\nsis\GotIt_0.1.0_x64-setup.exe` (~2.6MB)
+- **Executable**: `frontend\src-tauri\target\release\gotit-app.exe` (~12MB)
 
-### Verify the build
+### Log Levels
 
-1. **Run the installer** — double-click `GotIt_0.1.0_x64-setup.exe`
-2. **Check tray icon** — GotIt icon should appear in the system tray (no visible window)
-3. **Test shortcut** — press `Ctrl+Shift+G`, the Launcher Bar should appear at screen center
-4. **Test input** — type a command (e.g. "搜索py文件") and press Enter
-5. **Check Main Panel** — should show pipeline progress and search results
-6. **Test execution** — click "Open" on a result, the file should open
-7. **Test tray menu** — right-click tray icon → "Show GotIt" / "Quit"
-8. **Test Esc** — press Escape in any window to hide it
-9. **Test persistence** — close windows, app stays in tray; `Ctrl+Shift+G` brings it back
+| Build | Python backend | Tauri/Rust |
+|-------|---------------|------------|
+| Debug (`build-debug.bat`) | INFO | INFO |
+| Release (`build-release.bat`) | ERROR only | ERROR only |
+| Dev (`npx tauri dev`) | INFO | INFO |
+| CLI `--debug` flag | DEBUG | — |
 
-### Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| Launcher doesn't appear | Check if `Ctrl+Shift+G` conflicts with another app |
-| "Connection error" on submit | Ensure Python backend is running (`uv run gotit --mode server`) |
-| Everything search returns 0 results | Ensure Everything is running in user mode, not just as service |
-| whisper model not found | Download `ggml-base.bin` to `models/` directory |
-| SSL errors with LLM API | The adapter uses `verify=False` — check your `.env` base URL |
+---
 
 ## Project Structure
 
 ```
 GotIt/
-├── gotit/              # Python backend (FastAPI)
-│   ├── domain/         # Models, ports, events, pipeline
-│   ├── adapters/       # STT, LLM, search, executor, audio
-│   ├── api/            # REST routes + WebSocket
-│   └── services/       # EventBus, Container DI, session
-├── frontend/           # React + TypeScript + Vite
-│   ├── src/            # Components, hooks, stores
-│   └── src-tauri/      # Tauri Rust shell
-├── models/             # whisper.cpp model files (gitignored)
-├── tests/              # pytest test suite
-└── prompt/plan/        # Design docs
+├── gotit/                  # Python backend (FastAPI)
+│   ├── domain/             # Models, ports, events, pipeline
+│   ├── adapters/           # STT, LLM, search, executor, activity
+│   ├── api/                # REST routes + WebSocket
+│   └── services/           # EventBus, Container, session, filters, mappings
+├── frontend/               # React + TypeScript + Vite
+│   ├── src/                # Components, hooks, stores
+│   └── src-tauri/          # Tauri Rust shell
+├── models/                 # whisper.cpp model files (gitignored)
+├── tests/                  # pytest test suite
+├── scripts/                # Build and setup scripts
+└── prompt/                 # Design docs and feature specs
 ```
 
 ## Tests
 
 ```bash
-# Run all tests (52 tests)
+# Run all tests
 uv run pytest -v
 
 # Frontend type check
@@ -185,17 +260,14 @@ cd frontend && npx tsc --noEmit
 cd frontend/src-tauri && cargo check
 ```
 
-## Configuration
+## Troubleshooting
 
-All settings can be set via environment variables (prefix `GOTIT_`) or `.env` file. See `.env.example` for the full list.
-
-Key settings:
-
-| Variable | Description |
-|----------|-------------|
-| `GOTIT_LLM__API_KEY` | API token for LLM service |
-| `GOTIT_LLM__BASE_URL` | OpenAI-compatible API endpoint |
-| `GOTIT_LLM__MODEL` | Model name |
-| `GOTIT_SEARCH__EVERYTHING_PATH` | Path to `es.exe` |
-| `GOTIT_STT__MODEL_PATH` | Path to whisper model file |
-| `GOTIT_DEBUG` | Enable debug logging |
+| Issue | Solution |
+|-------|----------|
+| Launcher doesn't appear | Check if `Ctrl+Shift+G` conflicts with another app |
+| "Connection error" on submit | Ensure Python backend is running |
+| Everything search returns 0 results | Ensure Everything is running in user mode |
+| whisper model not found | Download `ggml-base.bin` to `models/` directory |
+| SSL errors with LLM API | Check your `.env` base URL |
+| `gotit.exe` locked during `uv sync` | Kill orphan processes: `taskkill /F /IM gotit.exe` |
+| Custom prompt not loading | Ensure file is at `~/.gotit/intent_prompt.md` (not `.txt`) |

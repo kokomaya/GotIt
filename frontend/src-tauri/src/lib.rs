@@ -247,6 +247,7 @@ pub fn run() {
             let menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
 
             let _tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().cloned().unwrap())
                 .menu(&menu)
                 .tooltip("GotIt")
                 .on_menu_event(move |app, event| match event.id().as_ref() {

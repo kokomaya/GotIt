@@ -68,10 +68,22 @@ class ActivityConfig(BaseModel):
     ]
 
 
+def _env_files() -> tuple[str, ...]:
+    from pathlib import Path
+
+    files: list[str] = []
+    home_env = Path.home() / ".gotit" / ".env"
+    if home_env.is_file():
+        files.append(str(home_env))
+    if Path(".env").is_file():
+        files.append(".env")
+    return tuple(files)
+
+
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="GOTIT_",
-        env_file=".env",
+        env_file=_env_files(),
         env_file_encoding="utf-8",
         env_nested_delimiter="__",
         extra="ignore",

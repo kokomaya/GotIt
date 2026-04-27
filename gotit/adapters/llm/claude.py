@@ -17,8 +17,15 @@ if TYPE_CHECKING:
 
 log = structlog.get_logger()
 
-_PROMPTS_DIR = Path(__file__).parent / "prompts"
-_SYSTEM_PROMPT = (_PROMPTS_DIR / "intent_system.txt").read_text(encoding="utf-8")
+_BUILTIN_PROMPT = Path(__file__).parent / "prompts" / "intent_system.md"
+_USER_PROMPT = Path.home() / ".gotit" / "intent_prompt.md"
+
+
+def _load_system_prompt() -> str:
+    if _USER_PROMPT.is_file():
+        log.info("using_user_prompt", path=str(_USER_PROMPT))
+        return _USER_PROMPT.read_text(encoding="utf-8")
+    return _BUILTIN_PROMPT.read_text(encoding="utf-8")
 
 _MAX_RETRIES = 2
 _BACKOFF_BASE = 1.0
@@ -46,6 +53,7 @@ class OpenAICompatibleAdapter:
         self._context: list[str] = []
         self._max_context = 3
         self._learned_mappings = learned_mappings
+        self._system_prompt = _load_system_prompt()
 
     async def parse_intent(
         self, text: str, context: list[str] | None = None
@@ -57,7 +65,7 @@ class OpenAICompatibleAdapter:
             history = "\n".join(f"- {c}" for c in ctx[-self._max_context :])
             user_content = f"Recent commands:\n{history}\n\nCurrent command: {text}"
 
-        system_prompt = _SYSTEM_PROMPT
+        system_prompt = self._system_prompt
         if self._learned_mappings:
             section = self._learned_mappings.to_prompt_section(limit=10)
             if section:
