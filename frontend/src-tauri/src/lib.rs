@@ -182,15 +182,20 @@ fn kill_backend(app: &AppHandle) {
 }
 
 fn start_python_backend() -> (Option<std::process::Child>, Option<windows_job::JobObject>) {
-    let child = Command::new("uv")
-        .args(["run", "gotit", "--mode", "server"])
+    let mut cmd = Command::new("uv");
+    cmd.args(["run", "gotit", "--mode", "server"])
         .current_dir(
             std::env::current_exe()
                 .ok()
                 .and_then(|p| p.parent()?.parent()?.parent().map(|p| p.to_path_buf()))
                 .unwrap_or_else(|| std::env::current_dir().unwrap_or_default()),
-        )
-        .spawn();
+        );
+
+    if !cfg!(debug_assertions) {
+        cmd.env("GOTIT_RELEASE", "1");
+    }
+
+    let child = cmd.spawn();
 
     match child {
         Ok(child) => {
@@ -217,7 +222,9 @@ fn start_python_backend() -> (Option<std::process::Child>, Option<windows_job::J
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())
+        .plugin(tauri_plugin_log::Builder::default().level(
+            if cfg!(debug_assertions) { log::LevelFilter::Info } else { log::LevelFilter::Error }
+        ).build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())

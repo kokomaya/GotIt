@@ -14,8 +14,15 @@ from gotit.config import AppConfig
 
 def configure_logging(*, debug: bool = False) -> None:
     import io
+    import os
 
-    level = logging.DEBUG if debug else logging.INFO
+    if debug:
+        level = logging.DEBUG
+    elif os.environ.get("GOTIT_RELEASE") == "1":
+        level = logging.ERROR
+    else:
+        level = logging.INFO
+
     log_output = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
     structlog.configure(
         processors=[

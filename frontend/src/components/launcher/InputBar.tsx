@@ -15,7 +15,6 @@ export function InputBar({
   onChange,
   onSubmit,
   onCancel,
-  historyIndex,
   onHistoryNavigate,
 }: Props) {
   const ref = useRef<HTMLInputElement>(null);
