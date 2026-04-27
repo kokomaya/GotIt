@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 log = structlog.get_logger()
 
-_BLOCKED_EXTENSIONS = {".bat", ".cmd", ".ps1", ".vbs", ".js", ".wsf", ".msi"}
+_BLOCKED_EXTENSIONS = {".ps1", ".vbs", ".js", ".wsf", ".msi"}
 
 
 class WindowsExecutor:
@@ -54,11 +54,22 @@ class WindowsExecutor:
                 message="No program specified",
             )
 
+        if len(targets) > 1:
+            summary = "\n".join(
+                f"  [{i + 1}] {r.filename}  ({r.path})" for i, r in enumerate(targets[:10])
+            )
+            return ExecutionResult(
+                success=True,
+                action=ActionType.RUN_PROGRAM,
+                message=f"Found {len(targets)} matches:\n{summary}",
+                data={"count": len(targets), "pending_selection": True},
+            )
+
         resolved = None
-        # Use pre-resolved path from fuzzy resolution if available
-        if targets and targets[0].path.lower().endswith(".exe"):
+        _RUNNABLE_EXT = {".exe", ".bat", ".cmd"}
+        if targets:
             candidate = Path(targets[0].path)
-            if candidate.is_file():
+            if candidate.suffix.lower() in _RUNNABLE_EXT and candidate.is_file():
                 resolved = str(candidate)
 
         if not resolved and program:

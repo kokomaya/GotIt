@@ -90,4 +90,9 @@ class FilterRules:
         return False
 
     def to_everything_excludes(self) -> list[str]:
-        return [f"!path:{p}" for p in self.excluded_paths]
+        # Skip paths with spaces or $ — they break es.exe argument parsing.
+        # These are still filtered by should_exclude() in the code layer.
+        return [
+            f"!path:{p}" for p in self.excluded_paths
+            if " " not in p and "$" not in p
+        ]

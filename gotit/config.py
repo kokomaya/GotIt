@@ -60,6 +60,8 @@ class ActivityConfig(BaseModel):
         "SearchHost.exe",
         "ShellExperienceHost.exe",
         "SystemSettings.exe",
+        "ms-teams.exe",
+        "gotit-app.exe",
     ]
     excluded_extensions: list[str] = [
         "tmp", "log", "lock", "lnk",

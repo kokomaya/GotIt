@@ -87,7 +87,17 @@ class TestToEverythingExcludes:
     def test_default_rules_generate_excludes(self):
         rules = FilterRules()
         excludes = rules.to_everything_excludes()
-        assert len(excludes) == len(DEFAULT_EXCLUDED_PATHS)
+        # Paths with spaces or $ are skipped (handled by code-layer filter)
+        safe_paths = [p for p in DEFAULT_EXCLUDED_PATHS if " " not in p and "$" not in p]
+        assert len(excludes) == len(safe_paths)
+
+    def test_excludes_skip_paths_with_spaces(self):
+        rules = FilterRules(
+            excluded_paths=[".git", "System Volume Information", "$RECYCLE.BIN"],
+            excluded_filenames=[], excluded_extensions=[],
+        )
+        excludes = rules.to_everything_excludes()
+        assert excludes == ["!path:.git"]
 
 
 class TestLoadSave:

@@ -37,8 +37,8 @@ class TestOpenFile:
         assert not result.success
 
     async def test_blocked_extension(self, executor):
-        intent = Intent(action=ActionType.OPEN_FILE, raw_text="open bat")
-        targets = [SearchResult(path="C:\\evil.bat", filename="evil.bat")]
+        intent = Intent(action=ActionType.OPEN_FILE, raw_text="open vbs")
+        targets = [SearchResult(path="C:\\evil.vbs", filename="evil.vbs")]
         result = await executor.execute(intent, targets)
         assert not result.success
         assert "Blocked" in result.message
@@ -147,11 +147,14 @@ class TestValidatePath:
     def test_normal_path(self):
         assert _validate_path("C:\\Users\\test\\doc.pdf")
 
-    def test_blocked_bat(self):
-        assert not _validate_path("C:\\evil.bat")
+    def test_bat_allowed(self):
+        assert _validate_path("C:\\tools\\launch.bat")
+
+    def test_cmd_allowed(self):
+        assert _validate_path("C:\\tools\\run.cmd")
 
     def test_blocked_ps1(self):
         assert not _validate_path("C:\\script.ps1")
 
-    def test_blocked_cmd(self):
-        assert not _validate_path("C:\\run.cmd")
+    def test_blocked_vbs(self):
+        assert not _validate_path("C:\\script.vbs")

@@ -41,9 +41,15 @@ Provide as many clues as possible to help resolve the fuzzy query:
   null if no time context.
 - "partial_name": Fragment of the filename the user remembers. e.g. "auto" from "那个auto什么的"
 - "description": Functional description of the file/program. e.g. "出差申请表", "画图工具"
-- "synonyms": Your best guess at alternative names, translations, or aliases.
+- "synonyms": CRITICAL — you MUST translate and provide alternative names.
+  When the user speaks in Chinese about something with an English/foreign name,
+  you MUST provide the English/original name as a synonym. Filenames on Windows
+  are almost always in English, so Chinese-only synonyms are useless for search.
+  Include: English translations, abbreviations, brand names, product names, CLI names.
   e.g. for "画图" → ["mspaint", "paint"],
-  for "出差申请表" → ["travel request", "差旅申请", "出差申请"]
+  for "劳特巴赫" → ["lauterbach", "t32", "trace32", "t32marm"] (usually a .bat/.cmd launcher script),
+  for "出差申请表" → ["travel request", "travel_request", "差旅申请"],
+  for "六代雷达" → ["RAD600", "6th gen radar", "gen6"]
 - "likely_ext": Likely file extensions based on context.
   e.g. "申请表" → ["xlsx", "docx", "pdf"]
 - "search_variants": Different filename patterns the user might be referring to.
@@ -108,3 +114,9 @@ User: "用notepad++打开config.ini"
 
 User: "用Excel打开report.csv"
 {"action":"open_file","query":"report.csv","target":null,"filters":{"ext":"csv"},"match_mode":"exact","with_program":"excel","confidence":0.9}
+
+User: "打开六代劳特巴赫"
+{"action":"open_file","query":"lauterbach","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":null,"description":"Lauterbach TRACE32 launcher script for 6th gen radar","synonyms":["lauterbach","t32","trace32","t32marm","RAD600"],"likely_ext":["bat","cmd"],"search_variants":["*lauterbach*","*t32*","*trace32*"]},"confidence":0.85}
+
+User: "打开五代的刷写工具"
+{"action":"run_program","query":null,"target":"刷写工具","filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":null,"description":"flashing tool for 5th gen","synonyms":["flash","flashtool","flash_tool","RAD500"],"likely_ext":null},"confidence":0.8}

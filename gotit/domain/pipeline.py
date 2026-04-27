@@ -258,6 +258,23 @@ class VoicePipeline:
                 log.info("fuzzy_program_resolved", source="which", path=resolved)
                 return [SearchResult(path=resolved, filename=Path(resolved).name)]
 
+        # Try Everything search (for scripts like .bat/.cmd)
+        likely_ext = hints.get("likely_ext") or []
+        search_queries = [f"*{c}*" for c in candidates[:5]]
+        search_queries.extend(hints.get("search_variants") or [])
+        for q in search_queries:
+            if likely_ext:
+                for ext in likely_ext:
+                    results = await self._searcher.search(q, {"ext": ext})
+                    if results:
+                        log.info("fuzzy_program_resolved", source="everything", count=len(results))
+                        return results
+            else:
+                results = await self._searcher.search(q, None)
+                if results:
+                    log.info("fuzzy_program_resolved", source="everything", count=len(results))
+                    return results
+
         return []
 
 
