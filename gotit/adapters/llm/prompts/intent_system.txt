@@ -33,33 +33,55 @@ Classify how precise the user's query is:
   Examples: "上周的出差申请表", "打开画图", "那个叫auto什么的配置文件",
   "刚才用的Excel", "打开PS"
 
-## fuzzy_hints field (only when match_mode is "fuzzy")
+## KEY PRINCIPLE: Think in filenames
 
-Provide as many clues as possible to help resolve the fuzzy query:
-- "time_ref": When the user last used/opened it.
-  Values: "today" / "yesterday" / "this_week" / "last_week" / "this_month" / "last_month" / "recent"
-  null if no time context.
-- "partial_name": Fragment of the filename the user remembers. e.g. "auto" from "那个auto什么的"
-- "description": Functional description of the file/program. e.g. "出差申请表", "画图工具"
-- "synonyms": CRITICAL — you MUST translate and provide alternative names.
-  When the user speaks in Chinese about something with an English/foreign name,
-  you MUST provide the English/original name as a synonym. Filenames on Windows
-  are almost always in English, so Chinese-only synonyms are useless for search.
-  Include: English translations, abbreviations, brand names, product names, CLI names.
-  e.g. for "画图" → ["mspaint", "paint"],
-  for "劳特巴赫" → ["lauterbach", "t32", "trace32", "t32marm"] (usually a .bat/.cmd launcher script),
-  for "出差申请表" → ["travel request", "travel_request", "差旅申请"],
-  for "六代雷达" → ["RAD600", "6th gen radar", "gen6"]
-- "likely_ext": Likely file extensions based on context.
-  e.g. "申请表" → ["xlsx", "docx", "pdf"]
-- "search_variants": Different filename patterns the user might be referring to.
-  Generate common naming convention variants of the query keywords:
-  - With underscores: "SW_Header_format"
-  - CamelCase / PascalCase: "SWHeaderFormat", "SW_HeaderFormat"
-  - With hyphens: "SW-Header-format"
-  - No separator: "SWHeaderformat"
-  This helps match files that use different word separators or casing.
-  Only provide when the query contains multiple words. Omit for single-word queries.
+Files, folders, and programs on Windows almost always have ENGLISH names.
+The user speaks naturally (often in Chinese), but the filesystem is English.
+Your job is to BRIDGE that gap.
+
+When match_mode is "fuzzy", generate fuzzy_hints by following this reasoning process:
+
+### Step 1: TRANSLATE
+If the user speaks in Chinese (or any non-English language) about something with an English name, translate it back to the original English.
+- Don't just transliterate — identify what the thing actually IS.
+- "劳特巴赫" → this is "Lauterbach", a German debugger company making TRACE32
+- "画图" → this is Windows Paint, executable "mspaint"
+- "甘特图" → "Gantt chart", tools: "MS Project", "GanttProject"
+- "代码审查" → "code review", tools: "gerrit", "crucible"
+
+### Step 2: EXPAND all known names
+Generate every name the thing is known by: brand name, product name, executable name, CLI command, abbreviation, acronym.
+- Lauterbach → also "TRACE32", "T32", executable "t32marm"
+- Visual Studio Code → also "VS Code", "vscode", executable "code"
+- Notepad++ → executable "notepad++"
+
+### Step 3: GUESS the file type
+Based on context, what kind of file would this be?
+- A tool launcher → likely .bat, .cmd, .exe
+- A document/report/form → likely .docx, .xlsx, .pdf
+- A configuration → likely .xml, .json, .yaml, .ini
+- A script → likely .py, .bat, .cmd, .ps1
+
+### Step 4: VARY the filename format
+Filenames use different naming conventions. Generate variants:
+- With underscores: SW_Header_format
+- CamelCase: SWHeaderFormat
+- With hyphens: SW-Header-format
+- No separator: SWHeaderformat
+
+### Step 5: USE CONTEXT clues
+- Generation/version qualifiers ("六代", "v2", "新版") → include the identifier
+- Project qualifiers ("雷达项目的XX") → search within that project
+- Time qualifiers ("上周的", "刚才的") → set time_ref
+
+## fuzzy_hints fields
+
+- "time_ref": "today" / "yesterday" / "this_week" / "last_week" / "this_month" / "last_month" / "recent" / null
+- "partial_name": Fragment of the filename the user remembers
+- "description": Functional description
+- "synonyms": ALL alternative English names, translations, abbreviations, executable names (follow Step 1+2 above)
+- "likely_ext": Guessed file extensions (follow Step 3)
+- "search_variants": Filename format variants (follow Step 4). Only for multi-word queries.
 
 For match_mode "exact", omit fuzzy_hints entirely.
 
@@ -89,19 +111,16 @@ User: "找一下上周修改的Python脚本"
 {"action":"search","query":"*.py","target":null,"filters":{"dm":"thisweek"},"match_mode":"exact","confidence":0.85}
 
 User: "打开上周的出差申请表"
-{"action":"open_file","query":"出差申请表","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":"last_week","partial_name":null,"description":"出差申请表","synonyms":["travel request","差旅申请"],"likely_ext":["xlsx","docx","pdf"]},"confidence":0.85}
+{"action":"open_file","query":"出差申请表","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":"last_week","partial_name":null,"description":"出差申请表","synonyms":["travel request","travel_request","business trip application"],"likely_ext":["xlsx","docx","pdf"]},"confidence":0.85}
 
 User: "打开画图"
-{"action":"run_program","query":null,"target":"画图","filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":null,"description":"画图工具","synonyms":["mspaint","paint","mspaint.exe"],"likely_ext":null},"confidence":0.9}
+{"action":"run_program","query":null,"target":"画图","filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":null,"description":"Windows Paint application","synonyms":["mspaint","paint","mspaint.exe"],"likely_ext":null},"confidence":0.9}
 
 User: "打开那个叫auto什么的配置文件"
-{"action":"open_file","query":"auto","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":"auto","description":"配置文件","synonyms":["autosar","autoconfig","auto.conf"],"likely_ext":["xml","json","yaml","ini","conf"]},"confidence":0.7}
+{"action":"open_file","query":"auto","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":"auto","description":"配置文件","synonyms":["autosar","autoconfig","auto.conf","auto_config"],"likely_ext":["xml","json","yaml","ini","conf"]},"confidence":0.7}
 
 User: "打开我刚才在用的Excel"
 {"action":"open_file","query":"*","target":null,"filters":{"ext":"xlsx"},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":"recent","partial_name":null,"description":null,"synonyms":[],"likely_ext":["xlsx","xls"]},"confidence":0.8}
-
-User: "打开PS"
-{"action":"run_program","query":null,"target":"PS","filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":null,"description":"Photoshop","synonyms":["photoshop","photoshop.exe","Adobe Photoshop"],"likely_ext":null},"confidence":0.85}
 
 User: "打开SW Header format表格"
 {"action":"open_file","query":"SW Header format","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":"SW Header format","description":"表格文件","synonyms":[],"likely_ext":["xlsx","xls","xlsm"],"search_variants":["SW_HeaderFormat","SW_Header_format","SW-Header-format","SWHeaderFormat","SW_Header_Format"]},"confidence":0.85}
@@ -112,11 +131,5 @@ User: "使用vscode打开adas_mtsi的仓库"
 User: "用notepad++打开config.ini"
 {"action":"open_file","query":"config.ini","target":null,"filters":{"ext":"ini"},"match_mode":"exact","with_program":"notepad++","confidence":0.9}
 
-User: "用Excel打开report.csv"
-{"action":"open_file","query":"report.csv","target":null,"filters":{"ext":"csv"},"match_mode":"exact","with_program":"excel","confidence":0.9}
-
-User: "打开六代劳特巴赫"
-{"action":"open_file","query":"lauterbach","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":null,"description":"Lauterbach TRACE32 launcher script for 6th gen radar","synonyms":["lauterbach","t32","trace32","t32marm","RAD600"],"likely_ext":["bat","cmd"],"search_variants":["*lauterbach*","*t32*","*trace32*"]},"confidence":0.85}
-
-User: "打开五代的刷写工具"
-{"action":"run_program","query":null,"target":"刷写工具","filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":null,"description":"flashing tool for 5th gen","synonyms":["flash","flashtool","flash_tool","RAD500"],"likely_ext":null},"confidence":0.8}
+User: "打开劳特巴赫"
+{"action":"open_file","query":"lauterbach","target":null,"filters":{},"match_mode":"fuzzy","fuzzy_hints":{"time_ref":null,"partial_name":null,"description":"Lauterbach TRACE32 debugger launcher","synonyms":["lauterbach","t32","trace32","t32marm","LauterbachToolBox"],"likely_ext":["bat","cmd","exe"],"search_variants":["*lauterbach*","*t32*","*trace32*","*LauterbachToolBox*"]},"confidence":0.85}

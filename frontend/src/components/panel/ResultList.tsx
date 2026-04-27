@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SearchResultItem } from "../../stores/appStore";
 
 function formatSize(bytes: number): string {
@@ -19,6 +19,9 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString();
 }
 
+type SortKey = "name" | "path" | "size" | "modified";
+type SortDir = "asc" | "desc";
+
 interface Props {
   results: SearchResultItem[];
   selectedIndex: number;
@@ -27,6 +30,41 @@ interface Props {
 }
 
 export function ResultList({ results, selectedIndex, onSelect, onExecute }: Props) {
+  const [sortKey, setSortKey] = useState<SortKey>("modified");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const sorted = useMemo(() => {
+    const items = results.map((r, originalIndex) => ({ ...r, originalIndex }));
+    items.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "name":
+          cmp = a.filename.localeCompare(b.filename);
+          break;
+        case "path":
+          cmp = a.path.localeCompare(b.path);
+          break;
+        case "size":
+          cmp = a.size - b.size;
+          break;
+        case "modified":
+          cmp = (a.modified ?? "").localeCompare(b.modified ?? "");
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return items;
+  }, [results, sortKey, sortDir]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir(key === "modified" ? "desc" : "asc");
+    }
+  };
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "ArrowDown") {
@@ -37,12 +75,14 @@ export function ResultList({ results, selectedIndex, onSelect, onExecute }: Prop
         onSelect(Math.max(selectedIndex - 1, 0));
       } else if (e.key === "Enter") {
         e.preventDefault();
-        onExecute(selectedIndex);
+        if (sorted[selectedIndex]) {
+          onExecute(sorted[selectedIndex].originalIndex);
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedIndex, results.length, onSelect, onExecute]);
+  }, [selectedIndex, results.length, sorted, onSelect, onExecute]);
 
   if (results.length === 0) {
     return (
@@ -52,43 +92,77 @@ export function ResultList({ results, selectedIndex, onSelect, onExecute }: Prop
     );
   }
 
+  const SortIndicator = ({ col }: { col: SortKey }) =>
+    sortKey === col ? (
+      <span className="ml-1">{sortDir === "asc" ? "▲" : "▼"}</span>
+    ) : null;
+
   return (
-    <div className="space-y-1">
-      {results.map((r, i) => (
-        <div
-          key={r.path}
-          onClick={() => onSelect(i)}
-          onDoubleClick={() => onExecute(i)}
-          className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
-            i === selectedIndex
-              ? "bg-[var(--color-accent)]/10 text-[var(--color-text-primary)]"
-              : "hover:bg-white/5"
-          }`}
+    <div>
+      {/* Column headers */}
+      <div className="mb-1 flex items-center gap-3 px-3 py-1 text-xs text-[var(--color-text-secondary)]">
+        <span className="w-5" />
+        <button
+          onClick={() => handleSort("name")}
+          className="min-w-0 flex-1 text-left hover:text-[var(--color-text-primary)]"
         >
-          <span className="text-lg">
-            {r.filename.includes(".") ? "\u{1F4C4}" : "\u{1F4C1}"}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">{r.filename}</div>
-            <div className="truncate text-xs text-[var(--color-text-secondary)]">
-              {r.path}
-            </div>
-          </div>
-          <div className="flex shrink-0 gap-3 text-xs text-[var(--color-text-secondary)]">
-            {r.size > 0 && <span>{formatSize(r.size)}</span>}
-            {r.modified && <span>{formatDate(r.modified)}</span>}
-          </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onExecute(i);
-            }}
-            className="shrink-0 rounded px-2 py-1 text-xs text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)]/20"
+          Name<SortIndicator col="name" />
+        </button>
+        <button
+          onClick={() => handleSort("size")}
+          className="w-16 shrink-0 text-right hover:text-[var(--color-text-primary)]"
+        >
+          Size<SortIndicator col="size" />
+        </button>
+        <button
+          onClick={() => handleSort("modified")}
+          className="w-20 shrink-0 text-right hover:text-[var(--color-text-primary)]"
+        >
+          Modified<SortIndicator col="modified" />
+        </button>
+        <span className="w-12 shrink-0" />
+      </div>
+
+      {/* Rows */}
+      <div className="space-y-1">
+        {sorted.map((r, displayIndex) => (
+          <div
+            key={r.path}
+            onClick={() => onSelect(displayIndex)}
+            onDoubleClick={() => onExecute(r.originalIndex)}
+            className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
+              displayIndex === selectedIndex
+                ? "bg-[var(--color-accent)]/10 text-[var(--color-text-primary)]"
+                : "hover:bg-white/5"
+            }`}
           >
-            Open
-          </button>
-        </div>
-      ))}
+            <span className="w-5 text-center text-lg">
+              {r.filename.includes(".") ? "\u{1F4C4}" : "\u{1F4C1}"}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{r.filename}</div>
+              <div className="truncate text-xs text-[var(--color-text-secondary)]">
+                {r.path}
+              </div>
+            </div>
+            <div className="w-16 shrink-0 text-right text-xs text-[var(--color-text-secondary)]">
+              {r.size > 0 && formatSize(r.size)}
+            </div>
+            <div className="w-20 shrink-0 text-right text-xs text-[var(--color-text-secondary)]">
+              {r.modified && formatDate(r.modified)}
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onExecute(r.originalIndex);
+              }}
+              className="w-12 shrink-0 rounded px-2 py-1 text-xs text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent)]/20"
+            >
+              Open
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

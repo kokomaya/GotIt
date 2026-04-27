@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from gotit.domain.models import AudioChunk
     from gotit.domain.ports import ActivityStorePort, ExecutorPort, LLMPort, SearchPort, STTPort
     from gotit.services.event_bus import EventBus
+    from gotit.services.learned_mappings import LearnedMappingStore
 
 log = structlog.get_logger()
 
@@ -36,6 +37,7 @@ class VoicePipeline:
         executor: ExecutorPort,
         event_bus: EventBus,
         activity_store: ActivityStorePort | None = None,
+        learned_mappings: LearnedMappingStore | None = None,
     ) -> None:
         self._stt = stt
         self._llm = llm
@@ -43,6 +45,7 @@ class VoicePipeline:
         self._executor = executor
         self._bus = event_bus
         self._activity_store = activity_store
+        self._learned_mappings = learned_mappings
 
     async def run_once(self, audio: AudioChunk) -> ExecutionResult:
         transcript = await self._stt.transcribe(audio)
@@ -100,6 +103,19 @@ class VoicePipeline:
                 success=False, action=intent.action, message=f"Execution failed: {exc}"
             )
         await self._bus.publish(ExecutionEvent(result=result))
+
+        if (
+            result.success
+            and self._learned_mappings
+            and intent.match_mode == "fuzzy"
+            and results
+        ):
+            self._learned_mappings.record(
+                input_text=transcript.text,
+                resolved_path=results[0].path,
+                action=intent.action,
+            )
+
         return result
 
     # -- Fuzzy resolution chain (files) --

@@ -13,6 +13,7 @@ from gotit.domain.models import ActionType, Intent
 
 if TYPE_CHECKING:
     from gotit.config import LLMConfig
+    from gotit.services.learned_mappings import LearnedMappingStore
 
 log = structlog.get_logger()
 
@@ -26,7 +27,11 @@ _BACKOFF_BASE = 1.0
 class OpenAICompatibleAdapter:
     """LLM adapter using any OpenAI-compatible API."""
 
-    def __init__(self, config: LLMConfig) -> None:
+    def __init__(
+        self,
+        config: LLMConfig,
+        learned_mappings: LearnedMappingStore | None = None,
+    ) -> None:
         import httpx
         import openai
 
@@ -40,6 +45,7 @@ class OpenAICompatibleAdapter:
         )
         self._context: list[str] = []
         self._max_context = 3
+        self._learned_mappings = learned_mappings
 
     async def parse_intent(
         self, text: str, context: list[str] | None = None
@@ -50,6 +56,12 @@ class OpenAICompatibleAdapter:
         if ctx:
             history = "\n".join(f"- {c}" for c in ctx[-self._max_context :])
             user_content = f"Recent commands:\n{history}\n\nCurrent command: {text}"
+
+        system_prompt = _SYSTEM_PROMPT
+        if self._learned_mappings:
+            section = self._learned_mappings.to_prompt_section(limit=10)
+            if section:
+                system_prompt = system_prompt + "\n" + section
 
         models_to_try = [self._model, *self._fallback_models]
         raw = ""
@@ -65,7 +77,7 @@ class OpenAICompatibleAdapter:
                     response = self._client.chat.completions.create(
                         model=model,
                         messages=[
-                            {"role": "system", "content": _SYSTEM_PROMPT},
+                            {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_content},
                         ],
                     )

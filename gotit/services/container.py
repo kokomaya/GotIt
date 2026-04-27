@@ -32,10 +32,13 @@ class Container:
         self.activity_store = None
         self.activity_tracker = None
         self.filter_rules = None
+        self.learned_mappings = None
 
         from gotit.services.filter_rules import FilterRules
+        from gotit.services.learned_mappings import LearnedMappingStore
 
         self.filter_rules = FilterRules.load(config.search.filter_rules_path)
+        self.learned_mappings = LearnedMappingStore()
 
         if config.activity.enabled:
             from gotit.services.activity_store import ActivityStore
@@ -50,6 +53,7 @@ class Container:
             executor=self._build_executor(),
             event_bus=self.event_bus,
             activity_store=self.activity_store,
+            learned_mappings=self.learned_mappings,
         )
 
     def build_tracker(self):
@@ -73,7 +77,7 @@ class Container:
 
         from gotit.adapters.llm.claude import OpenAICompatibleAdapter
 
-        return OpenAICompatibleAdapter(self.config.llm)
+        return OpenAICompatibleAdapter(self.config.llm, learned_mappings=self.learned_mappings)
 
     def _build_searcher(self):
         from gotit.adapters.search.everything import EverythingAdapter
