@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./index.css";
 import { InputBar } from "./components/launcher/InputBar";
 import { ModeIndicator } from "./components/launcher/ModeIndicator";
@@ -8,20 +8,50 @@ import { useTauriWindow } from "./hooks/useTauriWindow";
 export default function LauncherApp() {
   const [text, setText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
-  const { submitText } = useWebSocket();
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const savedInput = useRef("");
+  const { submitText, fetchInputHistory, inputHistory } = useWebSocket();
   const { hideLauncher, showMain } = useTauriWindow();
+
+  useEffect(() => {
+    fetchInputHistory();
+  }, [fetchInputHistory]);
 
   const handleSubmit = async () => {
     if (!text.trim()) return;
     submitText(text.trim());
     setText("");
+    setHistoryIndex(-1);
     await hideLauncher();
     await showMain();
   };
 
   const handleCancel = async () => {
     setText("");
+    setHistoryIndex(-1);
     await hideLauncher();
+  };
+
+  const handleHistoryNavigate = (direction: "up" | "down") => {
+    if (inputHistory.length === 0) return;
+
+    if (direction === "up") {
+      if (historyIndex === -1) {
+        savedInput.current = text;
+      }
+      const next = Math.min(historyIndex + 1, inputHistory.length - 1);
+      setHistoryIndex(next);
+      setText(inputHistory[next]);
+    } else {
+      if (historyIndex <= 0) {
+        setHistoryIndex(-1);
+        setText(savedInput.current);
+      } else {
+        const next = historyIndex - 1;
+        setHistoryIndex(next);
+        setText(inputHistory[next]);
+      }
+    }
   };
 
   return (
@@ -33,9 +63,15 @@ export default function LauncherApp() {
         />
         <InputBar
           value={text}
-          onChange={setText}
+          onChange={(v) => {
+            setText(v);
+            setHistoryIndex(-1);
+          }}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
+          history={inputHistory}
+          historyIndex={historyIndex}
+          onHistoryNavigate={handleHistoryNavigate}
         />
         <button
           onClick={handleSubmit}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "../stores/appStore";
 
 const WS_URL = "ws://127.0.0.1:8765/ws/pipeline";
@@ -7,6 +7,8 @@ const RECONNECT_DELAY = 2000;
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<number>(0);
+  const [inputHistory, setInputHistory] = useState<string[]>([]);
+  const historyCallbackRef = useRef<((items: string[]) => void) | null>(null);
 
   const submitInput = useAppStore((s) => s.submitInput);
   const onTranscript = useAppStore((s) => s.onTranscript);
@@ -38,6 +40,13 @@ export function useWebSocket() {
           break;
         case "error":
           onError(msg.data.message);
+          break;
+        case "input_history":
+          setInputHistory(msg.data);
+          if (historyCallbackRef.current) {
+            historyCallbackRef.current(msg.data);
+            historyCallbackRef.current = null;
+          }
           break;
       }
     };
@@ -76,5 +85,16 @@ export function useWebSocket() {
 
   const cancel = useCallback(() => send("cancel"), [send]);
 
-  return { submitText, executeResult, cancel, isConnected: () => wsRef.current?.readyState === WebSocket.OPEN };
+  const fetchInputHistory = useCallback(() => {
+    send("get_input_history", { limit: 20 });
+  }, [send]);
+
+  return {
+    submitText,
+    executeResult,
+    cancel,
+    fetchInputHistory,
+    inputHistory,
+    isConnected: () => wsRef.current?.readyState === WebSocket.OPEN,
+  };
 }

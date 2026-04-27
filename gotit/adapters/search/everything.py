@@ -63,7 +63,10 @@ class EverythingAdapter:
         if proc.returncode != 0:
             err = stderr.decode("utf-8", errors="replace").strip()
             log.error("everything_search_error", returncode=proc.returncode, stderr=err)
-            raise RuntimeError(f"Everything search failed (exit {proc.returncode}): {err}")
+            hint = _diagnose_everything_error(proc.returncode, err)
+            raise RuntimeError(
+                f"Everything search failed (exit {proc.returncode}): {err}\n{hint}"
+            )
 
         lines = stdout.decode("utf-8", errors="replace").strip().splitlines()
         results = []
@@ -131,3 +134,16 @@ def _path_to_search_result(filepath: str) -> SearchResult:
         size=size,
         modified=modified,
     )
+
+
+def _diagnose_everything_error(returncode: int, stderr: str) -> str:
+    stderr_lower = stderr.lower()
+    if returncode == 2 or "ipc" in stderr_lower or "unable to connect" in stderr_lower:
+        return (
+            "Hint: Everything service may not be running. "
+            "Please start Everything (voidtools.com) and ensure "
+            "'Start Everything on system startup' is enabled in Options > General."
+        )
+    if "invalid" in stderr_lower or "syntax" in stderr_lower:
+        return "Hint: The search query may contain invalid syntax."
+    return "Hint: Check that Everything is running and es.exe is accessible."

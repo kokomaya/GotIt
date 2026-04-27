@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,6 +18,9 @@ log = structlog.get_logger()
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
 _SYSTEM_PROMPT = (_PROMPTS_DIR / "intent_system.txt").read_text(encoding="utf-8")
+
+_MAX_RETRIES = 2
+_BACKOFF_BASE = 1.0
 
 
 class OpenAICompatibleAdapter:
@@ -49,30 +53,50 @@ class OpenAICompatibleAdapter:
 
         models_to_try = [self._model, *self._fallback_models]
         raw = ""
+        last_error: Exception | None = None
 
         for model in models_to_try:
             if not model:
                 continue
-            log.debug("llm_request", model=model, text=text)
-            try:
-                response = self._client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": _SYSTEM_PROMPT},
-                        {"role": "user", "content": user_content},
-                    ],
-                )
-                raw = (response.choices[0].message.content or "").strip()
-                if raw:
-                    log.debug("llm_response", model=model, raw=raw)
-                    break
-                log.warning("llm_empty_response", model=model)
-            except Exception as exc:
-                log.warning("llm_model_failed", model=model, error=str(exc))
+
+            for attempt in range(_MAX_RETRIES + 1):
+                log.debug("llm_request", model=model, text=text, attempt=attempt)
+                try:
+                    response = self._client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": _SYSTEM_PROMPT},
+                            {"role": "user", "content": user_content},
+                        ],
+                    )
+                    raw = (response.choices[0].message.content or "").strip()
+                    if raw:
+                        log.debug("llm_response", model=model, raw=raw)
+                        break
+                    log.warning("llm_empty_response", model=model, attempt=attempt)
+                except Exception as exc:
+                    last_error = exc
+                    log.warning(
+                        "llm_request_failed",
+                        model=model,
+                        attempt=attempt,
+                        error=str(exc),
+                    )
+
+                if attempt < _MAX_RETRIES:
+                    delay = _BACKOFF_BASE * (2 ** attempt)
+                    log.info("llm_retry_backoff", delay=delay, attempt=attempt + 1)
+                    await asyncio.sleep(delay)
+
+            if raw:
+                break
 
         if not raw:
             log.error("llm_all_models_failed", models=models_to_try)
-            raise RuntimeError("All LLM models returned empty responses")
+            msg = "All LLM models failed"
+            if last_error:
+                msg += f": {last_error}"
+            raise RuntimeError(msg)
 
         intent = _parse_response(raw, text)
 

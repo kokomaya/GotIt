@@ -163,6 +163,18 @@ async def pipeline_ws(websocket: WebSocket) -> None:
                         {"type": "error", "data": {"message": f"Invalid index: {index}"}}
                     )
 
+            elif msg_type == "get_history":
+                history = state.session.get_history(limit=msg_data.get("limit", 50))
+                await websocket.send_json({"type": "history", "data": history})
+
+            elif msg_type == "get_input_history":
+                inputs = state.session.get_input_history(
+                    limit=msg_data.get("limit", 20)
+                )
+                await websocket.send_json(
+                    {"type": "input_history", "data": inputs}
+                )
+
             elif msg_type == "cancel":
                 await websocket.send_json(
                     {"type": "state", "data": {"status": "cancelled"}}

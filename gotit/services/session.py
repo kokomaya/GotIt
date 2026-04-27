@@ -32,5 +32,16 @@ class SessionManager:
     def get_history(self, limit: int = 50) -> list[dict[str, Any]]:
         return [r.to_dict() for r in list(self._history)[:limit]]
 
+    def get_input_history(self, limit: int = 20) -> list[str]:
+        seen: set[str] = set()
+        result: list[str] = []
+        for r in self._history:
+            if r.input_text not in seen:
+                seen.add(r.input_text)
+                result.append(r.input_text)
+                if len(result) >= limit:
+                    break
+        return result
+
     def clear(self) -> None:
         self._history.clear()
